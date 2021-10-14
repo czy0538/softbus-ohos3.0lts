@@ -207,6 +207,7 @@ static const CapabilityMap g_capabilityMap[] = {
 /**
  * @brief Defines service subscription information.
  *
+ *
  */
 typedef struct {
     /** Service ID */

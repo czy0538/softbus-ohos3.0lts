@@ -177,7 +177,7 @@ int32_t StartDiscovery(const char *packageName, const SubscribeInfo *info, const
     {
         return SOFTBUS_INVALID_PARAM;
     }
-
+    //将我们的回调函数注册给g_discInfo,调用ServerIpcStartDiscovery，最终调用DiscIpcStartDiscovery
     return StartDiscoveryInner(packageName, info, cb);
 }
 

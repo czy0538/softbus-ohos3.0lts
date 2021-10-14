@@ -49,9 +49,11 @@ int32_t UnPublishServiceInner(const char *packageName, int32_t publishId)
     return SOFTBUS_OK;
 }
 
+//将我们的回调函数注册给g_discInfo
 int32_t StartDiscoveryInner(const char *packageName, const SubscribeInfo *info, const IDiscoveryCallback *cb)
 {
     g_discInfo->subscribeCb = *cb;
+    //区分了标准系统和小型系统，以小型系统为例
     int32_t ret = ServerIpcStartDiscovery(packageName, info);
     if (ret != SOFTBUS_OK) {
         SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "Server StartDiscovery failed, ret = %d", ret);

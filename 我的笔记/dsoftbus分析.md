@@ -41,11 +41,19 @@ HWTEST_F(Disc_Test, PublishServiceTest002, TestSize.Level1)
 }
 ```
 
-### 命名模式分析
+## 命名模式分析
 
 - 
 
-### StartDiscovery分析
+## 一些不知道该分给谁但很重要的记录
+
+- **PublishService**和**StartDiscovery**本体行为完全一致，区别在于最后的函数调用了不同的**ServerIpc**
+
+- 解耦方式与lite仓库不同，在编译是调用不同文件夹下的同名函数来区分，在调用处不做区分
+
+  ![image-20211014105319212](https://picgo-1305367394.cos.ap-beijing.myqcloud.com/picgo/202110141053325.png)
+
+## StartDiscovery分析
 
 一次发现成功的日记
 
@@ -85,7 +93,7 @@ write file switch /storage/data/log/hilog2.txt
 01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [COMM]retvalue:0
 01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [COMM]success
 
-//InitSoftBus运行成功
+//InitSoftBus运行成功返回值
 01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [COMM]softbus sdk frame init success.
 
 
