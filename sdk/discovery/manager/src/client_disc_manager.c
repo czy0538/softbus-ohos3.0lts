@@ -72,6 +72,7 @@ int32_t StopDiscoveryInner(const char *packageName, int32_t subscribeId)
     return SOFTBUS_OK;
 }
 
+//g_discInfo初始化，DiscServerProxy初始化
 int32_t DiscClientInit(void)
 {
     g_discInfo = (DiscInfo *)SoftBusCalloc(sizeof(DiscInfo));

@@ -1,0 +1,106 @@
+# communication_dsoftbus分析
+
+## 目录结构
+
+![image-20211013193738075](https://picgo-1305367394.cos.ap-beijing.myqcloud.com/picgo/202110140957454.png)
+
+
+
+## 运行模式分析
+
+dsoftbus采用了跟lite仓库完全不同的模式。在用户调用软总线功能前，需要先启动`softbus_server`，该进程一般跟随系统启动，在轻量级系统上已经测试过，如果没有该进程，软总线各项功能无法正常运行。
+
+## 测试系统分析
+
+按照代码模块的分析，我们可以推测出test模块下的各个文件夹的含义。OpenHarmony使用的是谷歌的gtest测试框架。
+
+一个标准测试函数如下
+
+```c
+对待测内容的描述
+/**
+ * @tc.name: PublishServiceTest002
+ * @tc.desc: Verify normal case
+ * @tc.type: FUNC
+ * @tc.require:
+ */
+HWTEST_F是一个封装的宏，调用了Disc_Test
+其描述如下
+//#define HWTEST_F(className, funcName, level) void className::funcName()
+HWTEST_F(Disc_Test, PublishServiceTest002, TestSize.Level1)
+{
+    int ret;
+
+    g_pInfo.publishId = GetPublishId();
+    ret = PublishService(g_pkgName, &g_pInfo, &g_publishCb);
+    EXPECT_TRUE(ret == 0);
+
+    g_pInfo1.publishId = GetPublishId();
+    ret = PublishService(g_pkgName, &g_pInfo1, &g_publishCb);
+    EXPECT_TRUE(ret == 0);
+}
+```
+
+### 命名模式分析
+
+- 
+
+### StartDiscovery分析
+
+一次发现成功的日记
+
+```c++
+OHOS # start discoveryTask
+01-01 01:04:18.961 19 94 I 015C0/dsoftbus_standard: [LNN]NodeStateCbCount is 10
+[czy_test]ret is:0
+[czy_test]waiting!!!
+[czy_test]TestDiscoverySuccess
+01-01 01:04:18.961 19 94 I 015C0/dsoftbus_standard: [LNN]bus center start get server proxy
+01-01 01:04:18.961 19 94 I 01800/Samgr: Initialize Client Registry!
+01-01 01:04:18.962 3 36 D 01800/Samgr: Judge Auth<softbus_service, (null)> ret:0
+01-01 01:04:18.962 3 36 D 01800/Samgr: Find Feature<softbus_service, (null)> id<84, 0> ret:0
+01-01 01:04:18.962 19 94 I 01800/Samgr: Create remote sa proxy[0x233ad1e0]<softbus_service, (null)>!
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [LNN]bus center get server proxy ok
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [LNN]BusCenterClientInit init OK!
+write file switch /storage/data/log/hilog2.txt
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [DISC]disc start get server proxy
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [DISC]disc get server proxy ok
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [DISC]Init success
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]trans start get server proxy
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]trans get server proxy ok
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]init tcp direct channel success.
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]trans udp channel manager init success.
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]init succ
+01-01 01:04:18.962 19 94 I 01800/Samgr: Bootstrap core services(count:0).
+01-01 01:04:18.962 19 94 I 01800/Samgr: Initialized all core system services!
+01-01 01:04:18.962 19 94 I 01800/Samgr: Goto next boot step return code:-9
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [COMM]start get client proxy
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [COMM]frame get client proxy ok
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [COMM]ServerProvideInterfaceInit ok
+01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [COMM]server register service client push.
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]RECEIVE FUNCID:0
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]register service ipc server pop.
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]CheckSoftBusSysPermission uid:2 success
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]new client register:czypkgName
+01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [COMM]retvalue:0
+01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [COMM]success
+
+//InitSoftBus运行成功
+01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [COMM]softbus sdk frame init success.
+
+
+01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [DISC]start discovery ipc client push.
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]RECEIVE FUNCID:137
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]start discovery ipc server pop.
+write file switch /storage/data/log/hilog1.txt
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]CheckSoftBusSysPermission uid:2 success
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]register input bitmap = [32].
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]register all cap bitmap = [96].
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]coap start passive discovery.
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]ServerStartDiscovery success!
+01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]on discovery success callback ipc server push.
+01-01 01:04:18.971 19 97 I 015C0/dsoftbus_standard: [COMM]receive ipc transact code(260)
+01-01 01:04:18.971 19 97 I 015C0/dsoftbus_standard: [DISC]Sdk OnDiscoverySuccess, subscribeId = 233
+
+```
+

@@ -27,6 +27,7 @@
 static void *g_timerId = NULL;
 static TimerFunCallback g_timerFunList[SOFTBUS_MAX_TIMER_FUN_NUM] = {0};
 
+//创建SoftBusList
 SoftBusList *CreateSoftBusList(void)
 {
     pthread_mutexattr_t attr;

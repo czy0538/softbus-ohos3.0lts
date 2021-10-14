@@ -34,6 +34,7 @@ typedef struct {
 static SoftBusList *g_observerList = NULL;
 static bool g_isInited = false;
 
+//初始化g_observerList
 int EventClientInit(void)
 {
     if (g_isInited) {

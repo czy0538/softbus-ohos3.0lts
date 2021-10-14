@@ -255,6 +255,7 @@ void BusCenterClientDeinit(void)
     pthread_mutex_destroy(&g_busCenterClient.lock);
 }
 
+//初始化g_busCenterClient中的各个SoftBusList
 int BusCenterClientInit(void)
 {
     int32_t rc = SOFTBUS_ERR;
@@ -293,6 +294,7 @@ int BusCenterClientInit(void)
     if (rc != SOFTBUS_OK) {
         BusCenterClientDeinit();
     }
+    //初始化BusCenterServerProxy
     if (BusCenterServerProxyInit() != SOFTBUS_OK) {
         SoftBusLog(SOFTBUS_LOG_LNN, SOFTBUS_LOG_ERROR, "bus center server proxy init failed.");
         BusCenterClientDeinit();

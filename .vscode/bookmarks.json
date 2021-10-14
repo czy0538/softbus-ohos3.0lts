@@ -1,0 +1,14 @@
+{
+	"files": [
+		{
+			"path": "sdk/discovery/service/src/client_disc_service.c",
+			"bookmarks": [
+				{
+					"line": 151,
+					"column": 0,
+					"label": "StartDiscovery"
+				}
+			]
+		}
+	]
+}

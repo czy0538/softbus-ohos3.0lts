@@ -37,6 +37,7 @@ static SoftBusList *g_clientSessionServerList = NULL;
 
 void TransSessionTimer(void);
 
+//g_idFlagBitmap、g_clientSessionServerList、TransServerProxy初始化，注册各种回调函数
 int TransClientInit(void)
 {
     if (memset_s(g_idFlagBitmap, sizeof(g_idFlagBitmap), 0, sizeof(g_idFlagBitmap)) != EOK) {
@@ -59,7 +60,7 @@ int TransClientInit(void)
         SoftBusLog(SOFTBUS_LOG_TRAN, SOFTBUS_LOG_ERROR, "init trans ipc proxy failed");
         return SOFTBUS_ERR;
     }
-
+    //初始化 g_sessionCb，设置并注册各种回调函数
     if (ClientTransChannelInit() != SOFTBUS_OK) {
         SoftBusLog(SOFTBUS_LOG_TRAN, SOFTBUS_LOG_ERROR, "init trans channel failed");
         return SOFTBUS_ERR;
@@ -794,7 +795,7 @@ int32_t ClientEnableSessionByChannelId(const ChannelInfo *channel, int32_t *sess
                             channel->peerDeviceId, DEVICE_ID_SIZE_MAX) != EOK) {
                         (void)pthread_mutex_unlock(&g_clientSessionServerList->lock);
                         return SOFTBUS_MEM_ERR;
-                    }   
+                    }
                 }
                 (void)pthread_mutex_unlock(&(g_clientSessionServerList->lock));
                 return SOFTBUS_OK;

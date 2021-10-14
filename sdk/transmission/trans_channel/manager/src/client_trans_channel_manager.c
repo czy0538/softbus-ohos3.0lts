@@ -24,8 +24,10 @@
 #include "softbus_errcode.h"
 #include "softbus_log.h"
 
+//初始化 g_sessionCb，设置并注册各种回调函数
 int32_t ClientTransChannelInit(void)
 {
+
     IClientSessionCallBack *cb = GetClientSessionCb();
     if (cb == NULL) {
         return SOFTBUS_ERR;
