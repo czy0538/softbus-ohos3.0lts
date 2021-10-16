@@ -284,6 +284,7 @@ static int32_t CoapUnsubscribe(const SubscribeOption *option)
     return SOFTBUS_OK;
 }
 
+//StartAdvertise函数
 static int32_t CoapStartAdvertise(const SubscribeOption *option)
 {
     if (option == NULL || g_subscribeMgr == NULL) {
@@ -360,6 +361,7 @@ static void CoapUpdateLocalIp(LinkStatus status)
     DiscCoapUpdateLocalIp(status);
 }
 
+//注册StartAdvertise
 static DiscoveryFuncInterface g_discCoapFuncInterface = {
     .Publish = CoapPublish,
     .StartScan = CoapStartScan,

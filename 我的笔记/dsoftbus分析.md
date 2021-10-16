@@ -52,6 +52,10 @@ HWTEST_F(Disc_Test, PublishServiceTest002, TestSize.Level1)
 - 解耦方式与lite仓库不同，在编译是调用不同文件夹下的同名函数来区分，在调用处不做区分
 
   ![image-20211014105319212](https://picgo-1305367394.cos.ap-beijing.myqcloud.com/picgo/202110141053325.png)
+  
+- 在分析`core\discovery\manager\src\disc_manager.c DiscInterfaceByMedium ` 函数负责根据不同的medium调用不同的函数，注意到AUTO模式也会调用COAP。
+
+  ![image-20211016200906996](https://picgo-1305367394.cos.ap-beijing.myqcloud.com/picgo/202110162009108.png)
 
 ## StartDiscovery分析
 
@@ -59,56 +63,71 @@ HWTEST_F(Disc_Test, PublishServiceTest002, TestSize.Level1)
 
 ```c++
 OHOS # start discoveryTask
-01-01 01:04:18.961 19 94 I 015C0/dsoftbus_standard: [LNN]NodeStateCbCount is 10
+01-01 00:20:24.065 16 100 I 015C0/dsoftbus_standard: [LNN]NodeStateCbCount is 10
+01-01 00:20:24.066 16 100 I 015C0/dsoftbus_standard: [LNN]bus center start get server proxy
+01-01 00:20:24.066 16 100 I 01800/Samgr: Initialize Client Registry!
+01-01 00:20:24.066 3 35 D 01800/Samgr: Judge Auth<softbus_service, (null)> ret:0
+01-01 00:20:24.066 3 35 D 01800/Samgr: Find Feature<softbus_service, (null)> id<83, 0> ret:0
+01-01 00:20:24.067 16 100 I 01800/Samgr: Create remote sa proxy[0x227ef1e0]<softbus_service, (null)>!
+01-01 00:20:24.067 16 100 I 015C0/dsoftbus_standard: [LNN]bus center get server proxy ok
+01-01 00:20:24.067 16 100 I 015C0/dsoftbus_standard: [LNN]BusCenterClientInit init OK!
+01-01 00:20:24.067 16 100 I 015C0/dsoftbus_standard: [DISC]disc start get server proxy
+01-01 00:20:24.067 16 100 I 015C0/dsoftbus_standard: [DISC]disc get server proxy ok
+01-01 00:20:24.067 16 100 I 015C0/dsoftbus_standard: [DISC]Init success
 [czy_test]ret is:0
 [czy_test]waiting!!!
-[czy_test]TestDiscoverySuccess
-01-01 01:04:18.961 19 94 I 015C0/dsoftbus_standard: [LNN]bus center start get server proxy
-01-01 01:04:18.961 19 94 I 01800/Samgr: Initialize Client Registry!
-01-01 01:04:18.962 3 36 D 01800/Samgr: Judge Auth<softbus_service, (null)> ret:0
-01-01 01:04:18.962 3 36 D 01800/Samgr: Find Feature<softbus_service, (null)> id<84, 0> ret:0
-01-01 01:04:18.962 19 94 I 01800/Samgr: Create remote sa proxy[0x233ad1e0]<softbus_service, (null)>!
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [LNN]bus center get server proxy ok
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [LNN]BusCenterClientInit init OK!
-write file switch /storage/data/log/hilog2.txt
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [DISC]disc start get server proxy
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [DISC]disc get server proxy ok
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [DISC]Init success
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]trans start get server proxy
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]trans get server proxy ok
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]init tcp direct channel success.
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]trans udp channel manager init success.
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [TRAN]init succ
-01-01 01:04:18.962 19 94 I 01800/Samgr: Bootstrap core services(count:0).
-01-01 01:04:18.962 19 94 I 01800/Samgr: Initialized all core system services!
-01-01 01:04:18.962 19 94 I 01800/Samgr: Goto next boot step return code:-9
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [COMM]start get client proxy
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [COMM]frame get client proxy ok
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [COMM]ServerProvideInterfaceInit ok
-01-01 01:04:18.962 19 94 I 015C0/dsoftbus_standard: [COMM]server register service client push.
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]RECEIVE FUNCID:0
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]register service ipc server pop.
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]CheckSoftBusSysPermission uid:2 success
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]new client register:czypkgName
-01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [COMM]retvalue:0
-01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [COMM]success
+4 nStackXDFinder: NSTACKX_SetFilterCapability:[514] :Set Filter Capability
 
-//InitSoftBus运行成功返回值
-01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [COMM]softbus sdk frame init success.
+[czy_test]TestDiscoverySuccess//调用了发现成功的回调函数
 
-
-01-01 01:04:18.970 19 94 I 015C0/dsoftbus_standard: [DISC]start discovery ipc client push.
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]RECEIVE FUNCID:137
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]start discovery ipc server pop.
+3 nStackXCoAP: CoapServiceDiscoverStop:[634] :clear device list backup
+4 nStackXCoAP: CoapServiceDiscoverStopInner:[785] :device discover stopped
+2 nStackXDFinder: BackupDeviceDB:[1180] :clear backupDB error
+3 nStackXCoAP: CoapServiceDiscoverInner:[727] :clear device list
+2 nStackXDev: GetInterfaceInfo:[58] :ioctl fail, errno = 38
+2 nStackXCoAP: CoapServiceDiscoverInner:[732] :failed to post service discover request
 write file switch /storage/data/log/hilog1.txt
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [COMM]CheckSoftBusSysPermission uid:2 success
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]register input bitmap = [32].
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]register all cap bitmap = [96].
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]coap start passive discovery.
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]ServerStartDiscovery success!
-01-01 01:04:18.970 14 83 I 015C0/dsoftbus_standard: [DISC]on discovery success callback ipc server push.
-01-01 01:04:18.971 19 97 I 015C0/dsoftbus_standard: [COMM]receive ipc transact code(260)
-01-01 01:04:18.971 19 97 I 015C0/dsoftbus_standard: [DISC]Sdk OnDiscoverySuccess, subscribeId = 233
 
+01-01 00:20:24.145 16 100 I 015C0/dsoftbus_standard: [TRAN]trans start get server proxy
+01-01 00:20:24.145 16 100 I 015C0/dsoftbus_standard: [TRAN]trans get server proxy ok
+01-01 00:20:24.151 16 100 I 015C0/dsoftbus_standard: [TRAN]init tcp direct channel success.
+01-01 00:20:24.159 16 100 I 015C0/dsoftbus_standard: [TRAN]trans udp channel manager init success.
+01-01 00:20:24.159 16 100 I 015C0/dsoftbus_standard: [TRAN]init succ
+01-01 00:20:24.160 16 100 I 01800/Samgr: Bootstrap core services(count:0).
+01-01 00:20:24.160 16 100 I 01800/Samgr: Initialized all core system services!
+01-01 00:20:24.160 16 100 I 01800/Samgr: Goto next boot step return code:-9
+01-01 00:20:24.160 16 100 I 015C0/dsoftbus_standard: [COMM]start get client proxy
+01-01 00:20:24.160 16 100 I 015C0/dsoftbus_standard: [COMM]frame get client proxy ok
+01-01 00:20:24.160 16 100 I 015C0/dsoftbus_standard: [COMM]ServerProvideInterfaceInit ok
+01-01 00:20:24.160 16 100 I 015C0/dsoftbus_standard: [COMM]server register service client push.
+01-01 00:20:24.163 14 82 I 015C0/dsoftbus_standard: [COMM]RECEIVE FUNCID:0
+01-01 00:20:24.163 14 82 I 015C0/dsoftbus_standard: [COMM]register service ipc server pop.
+01-01 00:20:24.163 14 82 I 015C0/dsoftbus_standard: [COMM]CheckSoftBusSysPermission uid:0 success
+01-01 00:20:24.163 14 82 I 015C0/dsoftbus_standard: [COMM]new client register:czypkgName
+01-01 00:20:24.163 16 100 I 015C0/dsoftbus_standard: [COMM]retvalue:0
+01-01 00:20:24.163 16 100 I 015C0/dsoftbus_standard: [COMM]success
+    
+//InitSoftBus运行成功返回值
+01-01 00:20:24.163 16 100 I 015C0/dsoftbus_standard: [COMM]softbus sdk frame init success.
+01-01 00:20:24.163 16 100 I 015C0/dsoftbus_standard: [DISC]start discovery ipc client push.
+01-01 00:20:24.163 14 82 I 015C0/dsoftbus_standard: [COMM]RECEIVE FUNCID:137
+01-01 00:20:24.163 14 82 I 015C0/dsoftbus_standard: [COMM]start discovery ipc server pop.
+01-01 00:20:24.163 14 82 I 015C0/dsoftbus_standard: [COMM]CheckSoftBusSysPermission uid:0 success
+01-01 00:20:24.163 14 82 I 015C0/dsoftbus_standard: [DISC]register input bitmap = [32].
+01-01 00:20:24.163 14 82 I 015C0/dsoftbus_standard: [DISC]register all cap bitmap = [96].
+write file switch /storage/data/log/hilog2.txt
+
+//core\discovery\ipc\small\disc_client_proxy.c ClientIpcDiscoverySuccess开始
+01-01 00:20:24.164 14 82 I 015C0/dsoftbus_standard: [DISC]on discovery success callback ipc server push.
+ 
+//core\discovery\coap\src\disc_coap.cCoapStartAdvertise CoapStartAdvertise 运行成功返回值
+01-01 00:20:24.164 14 82 I 015C0/dsoftbus_standard: [DISC]coap start active discovery.
+    
+//core\discovery\manager\src\softbus_disc_server.c DiscStartDiscovery 运行成功返回值
+01-01 00:20:24.164 14 82 I 015C0/dsoftbus_standard: [DISC]ServerStartDiscovery success!
+    
+
+01-01 00:20:24.164 16 101 I 015C0/dsoftbus_standard: [COMM]receive ipc transact code(260)
+01-01 00:20:24.164 16 101 I 015C0/dsoftbus_standard: [DISC]Sdk OnDiscoverySuccess, subscribeId = 233
 ```
 

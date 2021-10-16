@@ -88,7 +88,9 @@ int32_t DiscIpcUnPublishService(const char *packageName, int32_t publishId)
 
 int32_t DiscIpcStartDiscovery(const char *packageName, const SubscribeInfo *info)
 {
-    SetCallLnnStatus(false);
+    SetCallLnnStatus(false); //g_isCallLnn = flag;
+
+    //参数检查，创建DiscInfo结构体，传入的info中所有信息都在这里，注册cb到内部结构体，并且把info添加到内部的list上，调用了CoapStartAdvertise
     int32_t ret = DiscStartDiscovery(packageName, info, &g_discInnerCb);
     if (ret != SOFTBUS_OK) {
         SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "ServerStartDiscovery failed");
@@ -96,6 +98,8 @@ int32_t DiscIpcStartDiscovery(const char *packageName, const SubscribeInfo *info
         return ret;
     }
     SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_INFO, "ServerStartDiscovery success!");
+
+    //通知进程，调用发送成功的回调函数
     (void)ClientIpcDiscoverySuccess(packageName, info->subscribeId);
     return SOFTBUS_OK;
 }

@@ -112,6 +112,8 @@ static int32_t DiscInterfaceProcess(const InnerOption *option, const DiscoveryFu
         case UNPUBLISH_FUNC:
             return ((mode == DISCOVER_MODE_ACTIVE) ? (interface->Unpublish(&(option->publishOption))) :
                 (interface->StopScan(&(option->publishOption))));
+
+        //从StartDiscovery过来是这个选项，对应core\discovery\coap\src\disc_coap.c
         case STARTDISCOVERTY_FUNC:
             return ((mode == DISCOVER_MODE_ACTIVE) ? (interface->StartAdvertise(&(option->subscribeOption))) :
                 (interface->Subscribe(&(option->subscribeOption))));
@@ -125,12 +127,14 @@ static int32_t DiscInterfaceProcess(const InnerOption *option, const DiscoveryFu
 
 static int32_t DiscInterfaceByMedium(const DiscInfo *info, const InterfaceFuncType type)
 {
+    //根据方式，选择不同内部函数？？？
     switch (info->medium) {
         case COAP:
             return DiscInterfaceProcess(&(info->option), g_discCoapInterface, info->mode, type);
         case BLE:
             return DiscInterfaceProcess(&(info->option), g_discBleInterface, info->mode, type);
         case AUTO: {
+            //auto模式默认选择Coap
             int32_t ret = DiscInterfaceProcess(&(info->option), g_discCoapInterface, info->mode, type);
             if (ret == SOFTBUS_OK) {
                 return SOFTBUS_OK;
@@ -460,6 +464,7 @@ static DiscInfo *CreateNewPublishInfoNode(const PublishInfo *info)
     return infoNode;
 }
 
+//创建DiscInfo结构体，我们传入的基本所有的info都存在内部这个结构体重
 static DiscInfo *CreateNewSubscribeInfoNode(const SubscribeInfo *info)
 {
     int32_t ret;
@@ -673,7 +678,7 @@ static DiscInfo *DeleteInfoFromList(SoftBusList *serviceList, const char *packag
 static int32_t InnerPublishService(const char *packageName, DiscInfo *info, const ServiceType type)
 {
     int32_t ret;
-    
+
     ret = AddInfoToList(g_publishInfoList, packageName, NULL, info, type);
     if (ret != SOFTBUS_OK) {
         SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "add list fail");
@@ -704,6 +709,7 @@ static int32_t InnerUnPublishService(const char *packageName, int32_t publishId,
     return SOFTBUS_OK;
 }
 
+//注册cb到内部结构体，并且把info添加到内部的list上，调用了CoapStartAdvertise
 static int32_t InnerStartDiscovery(const char *packageName, DiscInfo *info, const IServerDiscInnerCallback *cb,
     const ServiceType type)
 {
@@ -720,7 +726,7 @@ static int32_t InnerStartDiscovery(const char *packageName, DiscInfo *info, cons
         SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "add list fail");
         return ret;
     }
-
+    //最终调用了CoapStartAdvertise
     ret = DiscInterfaceByMedium(info, STARTDISCOVERTY_FUNC);
     if (ret != SOFTBUS_OK) {
         SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "interface fail");
@@ -1062,6 +1068,7 @@ int32_t DiscUnPublishService(const char *packageName, int32_t publishId)
         return SOFTBUS_INVALID_PARAM;
     }
 
+    //检查是初始化
     if (g_isInited == false) {
         SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "not init");
         return SOFTBUS_DISCOVER_MANAGER_NOT_INIT;
@@ -1078,28 +1085,32 @@ int32_t DiscStartDiscovery(const char *packageName, const SubscribeInfo *info, c
 {
     int32_t ret;
 
+    //参数检查
     if ((packageName == NULL) || (info == NULL) || (cb == NULL)) {
         return SOFTBUS_INVALID_PARAM;
     }
-
     ret = SubscribeInfoCheck(packageName, info);
+
+
     if (ret != SOFTBUS_OK) {
         return ret;
     }
 
+    //在InitSoftBus中置为的true
     if (g_isInited == false) {
         SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "not init");
         ret = SOFTBUS_DISCOVER_MANAGER_NOT_INIT;
         return ret;
     }
 
+    //创建DiscInfo结构体，传入的info中所有信息都在这里。
     DiscInfo *infoNode = CreateNewSubscribeInfoNode(info);
     if (infoNode == NULL) {
         SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "infoNode create failed");
         ret = SOFTBUS_DISCOVER_MANAGER_INFO_NOT_CREATE;
         return ret;
     }
-
+    ////注册cb到内部结构体，并且把info添加到内部的list上，调用了CoapStartAdvertise
     ret = InnerStartDiscovery(packageName, infoNode, cb, SUBSCRIBE_SERVICE);
     if (ret != SOFTBUS_OK) {
         ReleaseInfoNodeMem(infoNode, SUBSCRIBE_SERVICE);
