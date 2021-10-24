@@ -131,3 +131,472 @@ write file switch /storage/data/log/hilog2.txt
 01-01 00:20:24.164 16 101 I 015C0/dsoftbus_standard: [DISC]Sdk OnDiscoverySuccess, subscribeId = 233
 ```
 
+
+
+# coap发现消息分析
+
+> 之前分析start discovery函数会调用到 core\discovery\coap\src\disc_coap.c : CoapStartAdvertise函数，而该函数在设置完参数后，会调用DiscCoapStartDiscovery函数，本次就从该函数开始分析。
+
+该函数首先负责根据模式的不同，调用相应的函数，这里我们优先分析**ACTIVE_DISCOVERY**
+
+```c
+//core\discovery\coap\src\disc_nstackx_adapter.c
+int32_t DiscCoapStartDiscovery(DiscCoapMode mode)
+{
+    if (mode < ACTIVE_PUBLISH || mode > ACTIVE_DISCOVERY) {
+        SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "invalid param.");
+        return SOFTBUS_INVALID_PARAM;
+    }
+    switch (mode) {
+        case ACTIVE_PUBLISH:
+            if (NSTACKX_StartDeviceFindAn(PUBLISH_MODE_PROACTIVE) != SOFTBUS_OK) {
+                return SOFTBUS_DISCOVER_COAP_START_PUBLISH_FAIL;
+            }
+            break;
+        case ACTIVE_DISCOVERY:
+            if (NSTACKX_StartDeviceFind() != SOFTBUS_OK) {
+                return SOFTBUS_DISCOVER_COAP_START_DISCOVER_FAIL;
+            }
+            break;
+        default:
+            SoftBusLog(SOFTBUS_LOG_DISC, SOFTBUS_LOG_ERROR, "unsupport coap mode.");
+            return SOFTBUS_ERR;
+    }
+    return SOFTBUS_OK;
+}
+```
+
+### NSTACKX_StartDeviceFind
+
+注意到该函数对应了两个函数，应该是根据系统版本进行的区分。
+
+<img src="https://picgo-1305367394.cos.ap-beijing.myqcloud.com/picgo/202110240928812.png" alt="image-20211024092812722" style="zoom:67%;" />
+
+通过分析编译文件`core\discovery\coap\BUILD.gn`来进行判断
+
+可以看到仅有`liteos_m`是调用的`mini`打头的代码。其余系统均为`$dsoftbus_root_path/components/nstackx/nstackx_ctrl:nstackx_ctrl"`下的代码
+
+<img src="https://picgo-1305367394.cos.ap-beijing.myqcloud.com/picgo/202110240934799.png" alt="image-20211024093406653" style="zoom:67%;" />
+
+```c
+//components\nstackx\nstackx_ctrl\core\nstackx_common.c
+int32_t NSTACKX_StartDeviceFind(void)
+{
+    if (g_nstackInitState != NSTACKX_INIT_STATE_DONE) {
+        LOGE(TAG, "NSTACKX_Ctrl is not initiated yet");
+        return NSTACKX_EFAILED;
+    }
+    if (PostEvent(&g_eventNodeChain, g_epollfd, DeviceDiscoverInner, NULL) != NSTACKX_EOK) {
+        LOGE(TAG, "Failed to start device discover!");
+        return NSTACKX_EFAILED;
+    }
+    return NSTACKX_EOK;
+}
+```
+
+该函数干的事情也很简单，就是检查`g_nstackInitState`变量，然后发送一个`Event`,但显然总重要的是调用函数`DeviceDiscoverInner`
+
+### DeviceDiscoverInner
+
+```c
+//components\nstackx\nstackx_ctrl\core\nstackx_common.c
+static void DeviceDiscoverInner(void *argument)
+{
+    (void)argument;
+    CoapServiceDiscoverInner(INNER_DISCOVERY);
+
+    /* If both Wifi AP and BLE are disabled, we should also notify user, with empty list. */
+    if (!IsWifiApConnected()) {
+        NotifyDeviceFound(NULL, 0);
+    }
+}
+
+```
+
+该函数也调用了两个函数，下面的逻辑比较简单，且还有注释，先分析这个：
+
+####  IsWifiApConnected
+
+```c
+//components\nstackx\nstackx_ctrl\core\nstackx_device.c
+uint8_t IsWifiApConnected(void)
+{
+    struct in_addr ip;
+    GetLocalIp(&ip);
+    if (ip.s_addr != 0) {
+        return NSTACKX_TRUE;//NSTACKX_TRUE==1
+    }
+    return NSTACKX_FALSE;//NSTACKX_FALSE==0
+}
+```
+
+就是尝试去获取本地ip，如果得不到ip那么就返回0。
+
+#### NotifyDeviceFound
+
+```c
+void NotifyDeviceFound(const NSTACKX_DeviceInfo *deviceList, uint32_t deviceCount)
+{
+    if (g_parameter.onDeviceFound != NULL) {
+        LOGI(TAG, "notify callback: device found");
+        g_parameter.onDeviceFound(deviceList, deviceCount);
+        LOGI(TAG, "finish to notify device found");
+    } else {
+        LOGI(TAG, "notify callback: device found callback is null");
+    }
+}
+```
+
+结合传进来的参数，如果本地网络没有初始化，执行了`LOGI(TAG, "notify callback: device found callback is null");`。
+
+重点分析`CoapServiceDiscoverInner`
+
+### CoapServiceDiscoverInner
+
+```c
+//components\nstackx\nstackx_ctrl\core\coap_discover\coap_discover.c 
+//这里的传入参数为INNER_DISCOVERY，值为1
+void CoapServiceDiscoverInner(uint8_t userRequest)
+{
+    uint32_t discoverInterval;
+    //判断网络是否连接
+    if (!IsWifiApConnected() || g_context == NULL)
+    {
+        return;
+    }
+
+    //userRequest==INNER_DISCOVERY时，设置下面两个参数。
+    if (userRequest)
+    {
+        g_userRequest = NSTACKX_TRUE;
+        g_forceUpdate = NSTACKX_TRUE;
+    }
+
+    //计数值设置为零，清空device list backup
+    if (g_coapDiscoverTargetCount > 0 && g_discoverCount >= g_coapDiscoverTargetCount)
+    {
+        g_discoverCount = 0;
+        SetModeInfo(DISCOVER_MODE);
+        ClearDevices(GetDeviceDBBackup());
+        LOGW(TAG, "clear device list backup");
+        TimerSetTimeout(g_discoverTimer, 0, NSTACKX_FALSE);
+    }
+
+    //discover若正在进行则返回
+    if (g_discoverCount)
+    {
+        /* Service discover is ongoing, return. */
+        return;
+    }
+    else
+    {
+        /* First discover */
+        //备份当前g_deviceList，然后清空当前g_deviceList
+        if (BackupDeviceDB() != NSTACKX_EOK)
+        {
+            LOGE(TAG, "backup device list fail");
+            return;
+        }
+        ClearDevices(GetDeviceDB());
+        LOGW(TAG, "clear device list");
+        g_coapDiscoverTargetCount = g_coapMaxDiscoverCount;
+    }
+    //设置模式为DISCOVER_MODE
+    SetModeInfo(DISCOVER_MODE);
+
+    if (CoapPostServiceDiscover() != NSTACKX_EOK)
+    {
+        LOGE(TAG, "failed to post service discover request");
+        return;
+    }
+
+    discoverInterval = GetDiscoverInterval(g_discoverCount);
+    if (TimerSetTimeout(g_discoverTimer, discoverInterval, NSTACKX_FALSE) != NSTACKX_EOK)
+    {
+        LOGE(TAG, "failed to set timer for service discover");
+        return;
+    }
+    ++g_discoverCount;
+    LOGI(TAG, "the first time for device discover.");
+
+    return;
+}
+```
+
+### CoapPostServiceDiscover
+
+```c
+//components\nstackx\nstackx_ctrl\core\coap_discover\coap_discover.c
+//获得InterfaceName，BroadcastIp，discoverUri,准备发送
+static int32_t CoapPostServiceDiscover(void)
+{
+    char ifName[NSTACKX_MAX_INTERFACE_NAME_LEN] = {0};
+    char ipString[NSTACKX_MAX_IP_STRING_LEN] = {0};
+    char discoverUri[COAP_URI_BUFFER_LENGTH] = {0};
+    char *data = NULL;
+
+    if (GetLocalInterfaceName(ifName, sizeof(ifName)) != NSTACKX_EOK)
+    {
+        return NSTACKX_EFAILED;
+    }
+
+    if (GetIfBroadcastIp(ifName, ipString, sizeof(ipString)) != NSTACKX_EOK)
+    {
+        return NSTACKX_EFAILED;
+    }
+    //这个东西应该是发送广播包中用的，3861中也有这个东西
+    if (sprintf_s(discoverUri, sizeof(discoverUri), "coap://%s/%s", ipString, COAP_DEVICE_DISCOVER_URI) < 0)
+    {
+        return NSTACKX_EFAILED;
+    }
+    //生成json信息，其中包含了设备的各种信息
+    data = PrepareServiceDiscover(NSTACKX_TRUE);
+    if (data == NULL)
+    {
+        LOGE(TAG, "failed to prepare coap data");
+        return NSTACKX_EFAILED;
+    }
+
+    return CoapSendRequest(COAP_MESSAGE_NON, discoverUri, data, strlen(data) + 1, SERVER_TYPE_WLANORETH);
+}
+```
+
+在该函数的`GetIfBroadcastIp`处出现错误，对该函数进行分析。注意该函数也有多个，此处以liteos目录下为例分析。
+
+#### GetIfBroadcastIp
+
+```c
+int32_t GetIfBroadcastIp(const char *ifName, char *ipString, size_t ipStringLen)
+{
+    struct ifreq buf[INTERFACE_MAX];
+    struct ifconf ifc;
+    uint8_t foundIp = NSTACKX_FALSE;
+
+    if (ifName == NULL) {
+        return NSTACKX_EFAILED;
+    }
+
+    //获取接口列表
+    int32_t fd = GetInterfaceList(&ifc, buf, sizeof(buf));
+    if (fd < 0) {
+        return NSTACKX_EFAILED;
+    }
+
+    int32_t ifreqLen = (int32_t)sizeof(struct ifreq);
+    int32_t interfaceNum = (int32_t)(ifc.ifc_len / ifreqLen);
+    //进行比较，通过ifName找到对应的ip地址，然后置foundIp为真，没找到则为假
+    for (int32_t i = 0; i < interfaceNum && i < INTERFACE_MAX; i++)
+    {
+        if (strlen(buf[i].ifr_name) < strlen(ifName)) {
+            continue;
+        }
+        if (memcmp(buf[i].ifr_name, ifName, strlen(ifName)) != 0) {
+            continue;
+        }
+        if (GetInterfaceInfo(fd, SIOCGIFBRDADDR, &buf[i]) != NSTACKX_EOK) {
+            continue;
+        }
+        if (buf[i].ifr_addr.sa_family != AF_INET) {
+            continue;
+        }
+
+        if (inet_ntop(AF_INET, &(((struct sockaddr_in *)&(buf[i].ifr_addr))->sin_addr), ipString,
+            (socklen_t)ipStringLen) == NULL) {
+            continue;
+        }
+        //出现问题的地方
+        foundIp = NSTACKX_TRUE;
+        break;
+    }
+    CloseSocketInner(fd);
+
+    if (!foundIp) {
+        return NSTACKX_EFAILED;
+    }
+
+    return NSTACKX_EOK;
+}
+
+```
+
+
+
+
+
+#### PrepareServiceDiscover
+
+主要负责制作coap报文
+
+```c
+//components\nstackx\nstackx_ctrl\core\coap_discover\json_payload.c
+char *PrepareServiceDiscover(uint8_t isBroadcast)
+{
+    char coapUriBuffer[NSTACKX_MAX_URI_BUFFER_LENGTH] = {0};
+    char host[NSTACKX_MAX_IP_STRING_LEN] = {0};
+    char *formatString = NULL;
+    const DeviceInfo *deviceInfo = GetLocalDeviceInfoPtr();
+    cJSON *data = NULL;
+    cJSON *localCoapString = NULL;
+
+    data = cJSON_CreateObject();
+    if (data == NULL) {
+        goto L_END_JSON;
+    }
+
+    /* Prepare local device info */
+    if ((AddDeviceJsonData(data, deviceInfo) != NSTACKX_EOK) ||
+        (AddWifiApJsonData(data) != NSTACKX_EOK) ||
+        (AddCapabilityBitmap(data, deviceInfo) != NSTACKX_EOK)) {
+        goto L_END_JSON;
+    }
+
+    if (isBroadcast) {
+        if (GetLocalIpString(host, sizeof(host)) != NSTACKX_EOK) {
+            goto L_END_JSON;
+        }
+        if (sprintf_s(coapUriBuffer, sizeof(coapUriBuffer), "coap://%s/" COAP_DEVICE_DISCOVER_URI, host) < 0) {
+            goto L_END_JSON;
+        }
+        localCoapString = cJSON_CreateString(coapUriBuffer);
+        if (localCoapString == NULL || !cJSON_AddItemToObject(data, JSON_COAP_URI, localCoapString)) {
+            cJSON_Delete(localCoapString);
+            goto L_END_JSON;
+        }
+    }
+
+    formatString = cJSON_PrintUnformatted(data);
+    if (formatString == NULL) {
+        LOGE(TAG, "cJSON_PrintUnformatted failed");
+    }
+
+L_END_JSON:
+    cJSON_Delete(data);
+    return formatString;
+}
+```
+
+
+
+## 分析日记
+
+- fb06b309f4cf3889705dff28362253a1f7c62525 在StarDiscovery 分析路径上打印信息，并且打印制作包的信息。
+
+  运行日记输出如下：
+
+  ```c
+  OHOS # start discoveryTask
+  [czy_test]ret is:0
+  [czy_test]waiting!!!
+  [CZY_TEST] enter CoapStartAdvertise
+  4 nStackXDFinder: NSTACKX_SetFilterCapability:[518] :Set Filter Capability
+  [CZY_TEST] enter  DiscCoapStartDiscovery
+  [CZY_TEST_DiscCoapStartDiscovery] mode is ACTIVE_DISCOVERY
+  [CZY_TEST_NSTACKX_StartDeviceFind] enter
+  [czy_test]TestDiscoverySuccess
+  3 nStackXCoAP: CoapServiceDiscoverStop:[643] :clear device list backup
+  4 nStackXCoAP: CoapServiceDiscoverStopInner:[795] :device discover stopped
+  [CZY_TEST_DeviceDiscoverInner] enter
+  [CZY_TEST_CoapServiceDiscoverInner] enter
+  2 nStackXDFinder: BackupDeviceDB:[1180] :clear backupDB error
+  3 nStackXCoAP: CoapServiceDiscoverInner:[737] :clear device list
+  // 已经进入CoapPostServiceDiscover函数，该函数负责制作包，最终调用发送
+  [CZY_TEST_CoapPostServiceDiscover] enter
+  [CZY-TEST]按int型输出该值:35097
+  2 nStackXDev: GetInterfaceInfo:[80] :ioctl fail, errno = 38
+  2 nStackXCoAP: CoapServiceDiscoverInner:[742] :failed to post service discover request
+  //该函数后续还有很多输出信息，结合目前报错判断是GetInterfaceInfo错误
+  ```
+
+  即`GetLocalInterfaceName`函数附近存在错误。
+
+- 5c11d80d875e88dbbc2d6f4ec9f96be5c3c26c50 在`GetLocalInterfaceName`附近继续加入代码，以分析问题
+
+  ```c
+  OHOS # 
+  [czy_test]ret is:0
+  [czy_test]waiting!!!
+  [CZY_TEST] enter CoapStartAdvertise
+  [CZY_TEST] enter  DiscCoapStartDiscovery
+  [CZY_TEST_DiscCoapStartDiscovery] mode is ACTIVE_DISCOVERY
+  [CZY_TEST_NSTACKX_StartDeviceFind] enter
+  [czy_test]TestDiscoverySuccess
+  [CZY_TEST_DeviceDiscoverInner] enter
+  [CZY_TEST_CoapServiceDiscoverInner] enter
+  [CZY_TEST_CoapPostServiceDiscover] enter
+  [CZY-TEST]按int型输出该值:35097
+  //可以清晰地定位到问题出在GetIfBroadcastIp上
+  [CZY_TEST_CoapPostServiceDiscover]GetIfBroadcastIp error
+  ```
+
+- 在`GetIfBroadcastIp`中加入分析函数，问题最终定位到
+
+  ```c
+  01-01 00:10:05.952 17 16 I 015C0/dsoftbus_standard: [LNN]NodeStateCbCount is 10
+  [czy_test]ret is:0
+  [czy_test]waiting!!!
+  [CZY_TEST] enter CoapStartAdvertise
+  4 nStackXDFinder: NSTACKX_SetFilterCapability:[518] :Set Filter Capability
+  [CZY_TEST] enter  DiscCoapStartDiscovery
+  [CZY_TEST_DiscCoapStartDiscovery] mode is ACTIVE_DISCOVERY
+  [CZY_TEST_NSTACKX_StartDeviceFind] enter
+  [czy_test]TestDiscoverySuccess
+  3 nStackXCoAP: CoapServiceDiscoverStop:[648] :clear device list backup
+  4 nStackXCoAP: CoapServiceDiscoverStopInner:[800] :device discover stopped
+  [CZY_TEST_DeviceDiscoverInner] enter
+  [CZY_TEST_CoapServiceDiscoverInner] enter
+  2 nStackXDFinder: BackupDeviceDB:[1180] :clear backupDB error
+  3 nStackXCoAP: CoapServiceDiscoverInner:[742] :clear device list
+  [CZY_TEST_CoapPostServiceDiscover] enter
+  //ifName为eth？？？这可能是问题所在
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_GetIfBroadcastIp] enter
+   [CZY_TEST_GetInterfaceList] enter
+   [CZY-TEST]按int型输出该值:35097
+  //GetInterfaceInfo在循环中被调用了，而且出了些问题，但函数继续运行
+  2 nStackXDev: GetInterfaceInfo:[80] :ioctl fail, errno = 38
+  //没有找到ip
+  [CZY_TEST_GetIfBroadcastIp] !foundIp
+  [CZY_TEST_CoapPostServiceDiscover]GetIfBroadcastIp error
+  2 nStackXCoAP: CoapServiceDiscoverInner:[747] :failed to post service discover request
+  ```
+
+- c17b544e9e221306add7b74dc2ffe09d4e7799b9：为了解决该问题，`GetIfBroadcastIp`中输出找到的设备列表中的所有信息
+
+  ```c
+  [czy_test]ret is:0
+  [czy_test]waiting!!!
+  [CZY_TEST] enter CoapStartAdvertise
+  4 nStackXDFinder: NSTACKX_SetFilterCapability:[518] :Set Filter Capability
+  [CZY_TEST] enter  DiscCoapStartDiscovery
+  [CZY_TEST_DiscCoapStartDiscovery] mode is ACTIVE_DISCOVERY
+  [CZY_TEST_NSTACKX_StartDeviceFind] enter
+  [czy_test]TestDiscoverySuccess
+  3 nStackXCoAP: CoapServiceDiscoverStop:[648] :clear device list backup
+  4 nStackXCoAP: CoapServiceDiscoverStopInner:[800] :device discover stopped
+  [CZY_TEST_DeviceDiscoverInner] enter
+  [CZY_TEST_CoapServiceDiscoverInner] enter
+  2 nStackXDFinder: BackupDeviceDB:[1180] :clear backupDB error
+  3 nStackXCoAP: CoapServiceDiscoverInner:[742] :clear device list
+  [CZY_TEST_CoapPostServiceDiscover] enter
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_GetIfBroadcastIp] enter
+   [CZY_TEST_GetInterfaceList] enter
+   [CZY_TEST_GetIfBroadcastIp]interfaceNum==3
+  [CZY_TEST_GetIfBroadcastIp]print all interfaceInfo
+  [CZY_TEST_GetIfBroadcastIp]ifr_name==wlan0
+  [CZY_TEST_GetIfBroadcastIp]wlan0 != ifName
+  01-01 00:07:25.980 16 100 I 015C0/dsoftbus_standard: [TRAN]trans udp channel manager init success.
+  [CZY_TEST_GetIfBroadcastIp]ifr_name==lo
+  [CZY_TEST_GetIfBroadcastIp]ifr_name==lo len<ifName
+  [CZY_TEST_GetIfBroadcastIp]ifr_name==eth0
+  [CZY_TEST_GetIfBroadcastIp] enter GetInterfaceInfo
+  [CZY-TEST]按int型输出该值:35097
+  2 nStackXDev: GetInterfaceInfo:[80] :ioctl fail, errno = 38
+  //定位到
+  [CZY_TEST_GetIfBroadcastIp] GetInterfaceInfo error
+  [CZY_TEST_GetIfBroadcastIp] !foundIp
+   [CZY_TEST_CoapPostServiceDiscover]GetIfBroadcastIp error
+  2 nStackXCoAP: CoapServiceDiscoverInner:[747] :failed to post service discover request
+  ```
+
+  

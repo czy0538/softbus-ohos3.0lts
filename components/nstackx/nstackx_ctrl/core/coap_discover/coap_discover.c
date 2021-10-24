@@ -30,7 +30,7 @@
 
 #define TAG "nStackXCoAP"
 
-#define COAP_URI_BUFFER_LENGTH 64 /* the size of the buffer or variable used to save uri. */
+#define COAP_URI_BUFFER_LENGTH 64              /* the size of the buffer or variable used to save uri. */
 #define COAP_MAX_NUM_SUBSCRIBE_MODULE_COUNT 32 /* the maximum count of subscribed module */
 
 /*
@@ -53,7 +53,8 @@ static coap_context_t *g_context = NULL;
 static coap_context_t *g_p2pContext = NULL;
 static coap_context_t *g_usbContext = NULL;
 
-typedef struct CoapRequest {
+typedef struct CoapRequest
+{
     uint8_t type;
     uint8_t code;
     const char *remoteUrl;
@@ -63,12 +64,14 @@ typedef struct CoapRequest {
     size_t dataLength;
 } CoapRequest;
 
-typedef struct {
+typedef struct
+{
     uint16_t msgId;
     struct timespec recvTime;
 } MsgIdRecord;
 
-typedef struct {
+typedef struct
+{
     MsgIdRecord msgIdRecord[COAP_MAX_MSGID_RESERVE_NUM];
     uint32_t startIdx;
     uint32_t endIdx;
@@ -91,15 +94,18 @@ static int32_t CoapUriParse(const char *uriString, coap_uri_t *uriPtr)
     coap_uri_t localUri;
 
     (void)memset_s(&localUri, sizeof(localUri), 0, sizeof(localUri));
-    if ((uriString == NULL) || (uriPtr == NULL)) {
+    if ((uriString == NULL) || (uriPtr == NULL))
+    {
         return NSTACKX_EFAILED;
     }
 
-    if (coap_split_uri((unsigned char *)uriString, strlen(uriString), &localUri) < 0) {
+    if (coap_split_uri((unsigned char *)uriString, strlen(uriString), &localUri) < 0)
+    {
         LOGE(TAG, "invalid CoAP URI");
         return NSTACKX_EFAILED;
     }
-    if (localUri.scheme != COAP_URI_SCHEME_COAP) {
+    if (localUri.scheme != COAP_URI_SCHEME_COAP)
+    {
         LOGE(TAG, "coaps URI scheme not supported in this version of libcoap");
         return NSTACKX_EFAILED;
     }
@@ -111,30 +117,37 @@ static int32_t CoapUriParse(const char *uriString, coap_uri_t *uriPtr)
 static coap_pdu_t *CoapPackToPdu(const CoapRequest *coapRequest, const coap_uri_t *uriPtr, coap_session_t *session)
 {
     coap_pdu_t *pdu = NULL;
-    if (coapRequest == NULL) {
+    if (coapRequest == NULL)
+    {
         return NULL;
     }
-    if (coapRequest->remoteUrl == NULL) {
+    if (coapRequest->remoteUrl == NULL)
+    {
         return NULL;
     }
-    if (session == NULL) {
+    if (session == NULL)
+    {
         return NULL;
     }
     pdu = coap_new_pdu(session);
-    if (pdu == NULL) {
+    if (pdu == NULL)
+    {
         return NULL;
     }
     pdu->type = coapRequest->type;
     pdu->tid = coap_new_message_id(session);
     pdu->code = coapRequest->code;
-    if (coapRequest->tokenLength) {
-        if (!coap_add_token(pdu, coapRequest->tokenLength, coapRequest->token)) {
+    if (coapRequest->tokenLength)
+    {
+        if (!coap_add_token(pdu, coapRequest->tokenLength, coapRequest->token))
+        {
             LOGW(TAG, "can't add token to request");
         }
     }
     coap_add_option(pdu, COAP_OPTION_URI_HOST, uriPtr->host.length, uriPtr->host.s);
     coap_add_option(pdu, COAP_OPTION_URI_PATH, uriPtr->path.length, uriPtr->path.s);
-    if (coapRequest->dataLength) {
+    if (coapRequest->dataLength)
+    {
         coap_add_data(pdu, coapRequest->dataLength, (uint8_t *)(coapRequest->data));
     }
 
@@ -143,19 +156,23 @@ static coap_pdu_t *CoapPackToPdu(const CoapRequest *coapRequest, const coap_uri_
 
 static int32_t GetTargetIpString(uint8_t serverType, char *ipString, size_t length)
 {
-    if (ipString == NULL || length == 0) {
+    if (ipString == NULL || length == 0)
+    {
         return NSTACKX_EFAILED;
     }
 
-    if (serverType == SERVER_TYPE_WLANORETH) {
+    if (serverType == SERVER_TYPE_WLANORETH)
+    {
         return GetLocalIpString(ipString, length);
     }
 
-    if (serverType == SERVER_TYPE_P2P) {
+    if (serverType == SERVER_TYPE_P2P)
+    {
         return GetP2pIpString(ipString, length);
     }
 
-    if (serverType == SERVER_TYPE_USB) {
+    if (serverType == SERVER_TYPE_USB)
+    {
         return GetUsbIpString(ipString, length);
     }
 
@@ -165,13 +182,15 @@ static int32_t GetTargetIpString(uint8_t serverType, char *ipString, size_t leng
 coap_session_t *CoapGetSessionOnTargetServer(uint8_t serverType, const CoapServerParameter *coapServerParameter)
 {
     coap_context_t *context = GetContext(serverType);
-    if (context == NULL) {
+    if (context == NULL)
+    {
         LOGE(TAG, "can't get target context with type %hhu", serverType);
         return NULL;
     }
     char ipString[INET_ADDRSTRLEN] = {0};
 
-    if (GetTargetIpString(serverType, ipString, sizeof(ipString)) != NSTACKX_EOK) {
+    if (GetTargetIpString(serverType, ipString, sizeof(ipString)) != NSTACKX_EOK)
+    {
         LOGE(TAG, "can't get target IP with type %hhu", serverType);
         return NULL;
     }
@@ -205,12 +224,14 @@ int32_t CoapSendRequest(uint8_t coapType, const char *url, char *data, size_t da
     (void)memset_s(&remote, sizeof(remote), 0, sizeof(remote));
     (void)memset_s(&coapUri, sizeof(coapUri), 0, sizeof(coapUri));
 
-    if (CoapUriParse(coapRequest.remoteUrl, &coapUri) != NSTACKX_EOK) {
+    if (CoapUriParse(coapRequest.remoteUrl, &coapUri) != NSTACKX_EOK)
+    {
         goto DATA_FREE;
     }
     remote = coapUri.host;
     res = CoapResolveAddress(&remote, &dst.addr.sa);
-    if (res < 0) {
+    if (res < 0)
+    {
         LOGE(TAG, "fail to resolve address");
         goto DATA_FREE;
     }
@@ -222,18 +243,21 @@ int32_t CoapSendRequest(uint8_t coapType, const char *url, char *data, size_t da
     coapServerParameter.dst = &dst;
 
     session = CoapGetSessionOnTargetServer(serverType, &coapServerParameter);
-    if (session == NULL) {
+    if (session == NULL)
+    {
         LOGE(TAG, "get client session failed");
         goto DATA_FREE;
     }
 
     pdu = CoapPackToPdu(&coapRequest, &coapUri, session);
-    if (pdu == NULL) {
+    if (pdu == NULL)
+    {
         goto SESSION_RELEASE;
     }
 
     tid = coap_send(session, pdu);
-    if (tid == COAP_INVALID_TID) {
+    if (tid == COAP_INVALID_TID)
+    {
         LOGE(TAG, "coap send failed");
         goto SESSION_RELEASE;
     }
@@ -250,7 +274,8 @@ DATA_FREE:
 static int32_t CoapResponseService(const char *remoteUrl)
 {
     char *data = PrepareServiceDiscover(NSTACKX_FALSE);
-    if (data == NULL) {
+    if (data == NULL)
+    {
         LOGE(TAG, "failed to prepare coap data");
         return NSTACKX_EFAILED;
     }
@@ -261,34 +286,41 @@ static int32_t CoapResponseService(const char *remoteUrl)
 static int32_t GetServiceDiscoverInfo(uint8_t *buf, size_t size, DeviceInfo *deviceInfo, char **remoteUrlPtr)
 {
     uint8_t *newBuf = NULL;
-    if (size <= 0) {
+    if (size <= 0)
+    {
         return NSTACKX_EFAILED;
     }
-    if (buf[size - 1] != '\0') {
+    if (buf[size - 1] != '\0')
+    {
         newBuf = (uint8_t *)calloc(size + 1, 1U);
-        if (newBuf == NULL) {
+        if (newBuf == NULL)
+        {
             LOGE(TAG, "data is not end with 0 and new buf calloc error");
             return NSTACKX_ENOMEM;
         }
-        if (memcpy_s(newBuf, size + 1, buf, size) != EOK) {
+        if (memcpy_s(newBuf, size + 1, buf, size) != EOK)
+        {
             LOGE(TAG, "data is not end with 0 and memcpy data error");
             goto L_COAP_ERR;
         }
         LOGI(TAG, "data is not end with 0");
         buf = newBuf;
     }
-    if (ParseServiceDiscover(buf, deviceInfo, remoteUrlPtr) != NSTACKX_EOK) {
+    if (ParseServiceDiscover(buf, deviceInfo, remoteUrlPtr) != NSTACKX_EOK)
+    {
         LOGE(TAG, "parse service discover error");
         goto L_COAP_ERR;
     }
 
-    if (newBuf != NULL) {
+    if (newBuf != NULL)
+    {
         free(newBuf);
     }
 
     return NSTACKX_EOK;
 L_COAP_ERR:
-    if (newBuf != NULL) {
+    if (newBuf != NULL)
+    {
         free(newBuf);
     }
     return NSTACKX_EFAILED;
@@ -296,7 +328,8 @@ L_COAP_ERR:
 
 static void IncreaseRecvDiscoverNum(void)
 {
-    if (g_recvDiscoverMsgNum < UINT32_MAX) {
+    if (g_recvDiscoverMsgNum < UINT32_MAX)
+    {
         g_recvDiscoverMsgNum++;
     }
 }
@@ -306,17 +339,21 @@ static int32_t HndPostServiceDiscoverInner(coap_pdu_t *request, char **remoteUrl
     size_t size;
     uint8_t *buf = NULL;
     IncreaseRecvDiscoverNum();
-    if (g_recvDiscoverMsgNum > COAP_DISVOCER_MAX_RATE) {
+    if (g_recvDiscoverMsgNum > COAP_DISVOCER_MAX_RATE)
+    {
         return NSTACKX_EFAILED;
     }
-    if (coap_get_data(request, &size, &buf) == 0 || size == 0 || size > COAP_RXBUFFER_SIZE) {
+    if (coap_get_data(request, &size, &buf) == 0 || size == 0 || size > COAP_RXBUFFER_SIZE)
+    {
         return NSTACKX_EFAILED;
     }
     (void)memset_s(deviceInfo, sizeof(*deviceInfo), 0, sizeof(*deviceInfo));
-    if (GetServiceDiscoverInfo(buf, size, deviceInfo, remoteUrl) != NSTACKX_EOK) {
+    if (GetServiceDiscoverInfo(buf, size, deviceInfo, remoteUrl) != NSTACKX_EOK)
+    {
         return NSTACKX_EFAILED;
     }
-    if (deviceInfo->mode == PUBLISH_MODE_UPLINE || deviceInfo->mode == PUBLISH_MODE_OFFLINE) {
+    if (deviceInfo->mode == PUBLISH_MODE_UPLINE || deviceInfo->mode == PUBLISH_MODE_OFFLINE)
+    {
         LOGD(TAG, "peer is not DISCOVER_MODE");
         NSTACKX_DeviceInfo deviceList[PUBLISH_DEVICE_NUM];
         (void)memset_s(deviceList, sizeof(deviceList), 0, sizeof(deviceList));
@@ -328,43 +365,52 @@ static int32_t HndPostServiceDiscoverInner(coap_pdu_t *request, char **remoteUrl
 }
 
 static void HndPostServiceDiscover(coap_context_t *ctx, struct coap_resource_t *resource, coap_session_t *session,
-    coap_pdu_t *request, coap_binary_t *token, coap_string_t *query, coap_pdu_t *response)
+                                   coap_pdu_t *request, coap_binary_t *token, coap_string_t *query, coap_pdu_t *response)
 {
     (void)ctx;
     (void)resource;
     (void)session;
     (void)token;
     (void)query;
-    if (request == NULL || response == NULL) {
+    if (request == NULL || response == NULL)
+    {
         return;
     }
     char *remoteUrl = NULL;
     DeviceInfo deviceInfo;
-    if (HndPostServiceDiscoverInner(request, &remoteUrl, &deviceInfo) != NSTACKX_EOK) {
+    if (HndPostServiceDiscoverInner(request, &remoteUrl, &deviceInfo) != NSTACKX_EOK)
+    {
         free(remoteUrl);
         return;
     }
-    if (GetModeInfo() == PUBLISH_MODE_UPLINE || GetModeInfo() == PUBLISH_MODE_OFFLINE) {
+    if (GetModeInfo() == PUBLISH_MODE_UPLINE || GetModeInfo() == PUBLISH_MODE_OFFLINE)
+    {
         LOGD(TAG, "local is not DISCOVER_MODE");
         free(remoteUrl);
         return;
     }
-    if (UpdateDeviceDb(&deviceInfo, g_forceUpdate) != NSTACKX_EOK) {
+    if (UpdateDeviceDb(&deviceInfo, g_forceUpdate) != NSTACKX_EOK)
+    {
         free(remoteUrl);
         return;
     }
-    if (g_forceUpdate) {
+    if (g_forceUpdate)
+    {
         g_forceUpdate = NSTACKX_FALSE;
     }
-    if (deviceInfo.mode == PUBLISH_MODE_PROACTIVE) {
+    if (deviceInfo.mode == PUBLISH_MODE_PROACTIVE)
+    {
         LOGD(TAG, "peer is PUBLISH_MODE_PROACTIVE");
         free(remoteUrl);
         return;
     }
-    if (remoteUrl != NULL) {
+    if (remoteUrl != NULL)
+    {
         CoapResponseService(remoteUrl);
         free(remoteUrl);
-    } else {
+    }
+    else
+    {
         response->code = COAP_RESPONSE_CODE(COAP_RESPONSE_201);
     }
 }
@@ -372,22 +418,27 @@ static void HndPostServiceDiscover(coap_context_t *ctx, struct coap_resource_t *
 static void DeleteOverTimeMsgIdRecord(MsgIdList *msgIdList, struct timespec *curTime)
 {
     uint32_t i = msgIdList->startIdx;
-    if (msgIdList->startIdx >= COAP_MAX_MSGID_RESERVE_NUM || msgIdList->endIdx >= COAP_MAX_MSGID_RESERVE_NUM) {
+    if (msgIdList->startIdx >= COAP_MAX_MSGID_RESERVE_NUM || msgIdList->endIdx >= COAP_MAX_MSGID_RESERVE_NUM)
+    {
         return;
     }
     uint32_t cycleTimes = 0;
-    while (NSTACKX_TRUE) {
-        if (curTime->tv_sec - msgIdList->msgIdRecord[i].recvTime.tv_sec < COAP_MSGID_SURVIVAL_SECONDS) {
+    while (NSTACKX_TRUE)
+    {
+        if (curTime->tv_sec - msgIdList->msgIdRecord[i].recvTime.tv_sec < COAP_MSGID_SURVIVAL_SECONDS)
+        {
             return;
         }
-        if (i == g_msgIdList->endIdx) {
+        if (i == g_msgIdList->endIdx)
+        {
             msgIdList->startIdx = COAP_MAX_MSGID_RESERVE_NUM;
             msgIdList->endIdx = COAP_MAX_MSGID_RESERVE_NUM;
             return;
         }
         msgIdList->startIdx = (msgIdList->startIdx + 1) % COAP_MAX_MSGID_RESERVE_NUM;
         i = msgIdList->startIdx;
-        if (cycleTimes > COAP_MAX_MSGID_RESERVE_NUM) {
+        if (cycleTimes > COAP_MAX_MSGID_RESERVE_NUM)
+        {
             LOGE(TAG, "cycle too many times, error must occurred and init msgList");
             g_msgIdList->startIdx = COAP_MAX_MSGID_RESERVE_NUM;
             g_msgIdList->endIdx = COAP_MAX_MSGID_RESERVE_NUM;
@@ -401,19 +452,24 @@ static void AddMsgIdRecord(MsgIdList *msgIdList, uint16_t msgId, struct timespec
 {
     int32_t ret;
     uint32_t idx;
-    if (msgIdList->endIdx == COAP_MAX_MSGID_RESERVE_NUM) {
+    if (msgIdList->endIdx == COAP_MAX_MSGID_RESERVE_NUM)
+    {
         msgIdList->endIdx = 0;
         msgIdList->startIdx = 0;
         idx = 0;
-    } else {
+    }
+    else
+    {
         idx = (msgIdList->endIdx + 1) % COAP_MAX_MSGID_RESERVE_NUM;
-        if (idx == msgIdList->startIdx) {
+        if (idx == msgIdList->startIdx)
+        {
             msgIdList->startIdx = (msgIdList->startIdx + 1) % COAP_MAX_MSGID_RESERVE_NUM;
         }
     }
     msgIdList->msgIdRecord[idx].msgId = msgId;
     ret = memcpy_s(&msgIdList->msgIdRecord[idx].recvTime, sizeof(struct timespec), curTime, sizeof(struct timespec));
-    if (ret != NSTACKX_EOK) {
+    if (ret != NSTACKX_EOK)
+    {
         LOGE(TAG, "set msg id time error");
         return;
     }
@@ -424,28 +480,34 @@ static uint8_t RefreshMsgIdList(uint16_t msgId)
 {
     struct timespec curTime;
     uint32_t i;
-    if (g_msgIdList == NULL) {
+    if (g_msgIdList == NULL)
+    {
         return NSTACKX_TRUE;
     }
     ClockGetTime(CLOCK_MONOTONIC, &curTime);
     DeleteOverTimeMsgIdRecord(g_msgIdList, &curTime);
-    if (g_msgIdList->startIdx >= COAP_MAX_MSGID_RESERVE_NUM || g_msgIdList->endIdx >= COAP_MAX_MSGID_RESERVE_NUM) {
+    if (g_msgIdList->startIdx >= COAP_MAX_MSGID_RESERVE_NUM || g_msgIdList->endIdx >= COAP_MAX_MSGID_RESERVE_NUM)
+    {
         AddMsgIdRecord(g_msgIdList, msgId, &curTime);
         return NSTACKX_TRUE;
     }
     i = g_msgIdList->startIdx;
     uint32_t cycleTimes = 0;
-    while (NSTACKX_TRUE) {
-        if (g_msgIdList->msgIdRecord[i].msgId == msgId) {
+    while (NSTACKX_TRUE)
+    {
+        if (g_msgIdList->msgIdRecord[i].msgId == msgId)
+        {
             (void)memcpy_s(&g_msgIdList->msgIdRecord[i].recvTime, sizeof(struct timespec), &curTime,
                            sizeof(struct timespec));
             return NSTACKX_FALSE;
         }
-        if (i == g_msgIdList->endIdx) {
+        if (i == g_msgIdList->endIdx)
+        {
             break;
         }
         i = (i + 1) % COAP_MAX_MSGID_RESERVE_NUM;
-        if (cycleTimes > COAP_MAX_MSGID_RESERVE_NUM) {
+        if (cycleTimes > COAP_MAX_MSGID_RESERVE_NUM)
+        {
             LOGE(TAG, "cycle too many times, error must occurred and init msgList");
             g_msgIdList->startIdx = COAP_MAX_MSGID_RESERVE_NUM;
             g_msgIdList->endIdx = COAP_MAX_MSGID_RESERVE_NUM;
@@ -460,16 +522,19 @@ static uint8_t RefreshMsgIdList(uint16_t msgId)
 static uint16_t GetServiceMsgFrameLen(const uint8_t *frame, uint16_t size)
 {
     uint16_t frameLen, ret;
-    if (size < sizeof(frameLen)) {
+    if (size < sizeof(frameLen))
+    {
         LOGE(TAG, "input size %u is too small", size);
         return 0;
     }
-    if (memcpy_s(&frameLen, sizeof(frameLen), frame, sizeof(frameLen)) != EOK) {
+    if (memcpy_s(&frameLen, sizeof(frameLen), frame, sizeof(frameLen)) != EOK)
+    {
         LOGE(TAG, "memcpy frame len failed");
         return 0;
     }
     ret = ntohs(frameLen);
-    if (size < ret) {
+    if (size < ret)
+    {
         LOGE(TAG, "input size %u is smaller than decoded frame len %u", size, ret);
         return 0;
     }
@@ -478,26 +543,32 @@ static uint16_t GetServiceMsgFrameLen(const uint8_t *frame, uint16_t size)
 
 static uint16_t GetUnitInfo(const uint8_t *data, uint16_t dataLen, uint8_t *outBuf, uint32_t outLen, uint8_t unitType)
 {
-    if (dataLen < sizeof(CoapMsgUnit)) {
+    if (dataLen < sizeof(CoapMsgUnit))
+    {
         LOGE(TAG, "dataLen %u is too small", dataLen);
         return 0;
     }
     CoapMsgUnit *unit = (CoapMsgUnit *)data;
-    if (unit->type != unitType) {
+    if (unit->type != unitType)
+    {
         LOGE(TAG, "unit type %u does match target type %u", unit->type, unitType);
         return 0;
     }
     uint16_t valueLen = ntohs(unit->len);
-    if (valueLen == 0 || valueLen > outLen || valueLen + sizeof(CoapMsgUnit) > dataLen) {
+    if (valueLen == 0 || valueLen > outLen || valueLen + sizeof(CoapMsgUnit) > dataLen)
+    {
         LOGE(TAG, "valueLen %u is illegal", valueLen);
         return 0;
     }
-    if (memcpy_s(outBuf, outLen, unit->value, valueLen) != EOK) {
+    if (memcpy_s(outBuf, outLen, unit->value, valueLen) != EOK)
+    {
         LOGE(TAG, "memcpy unit->value failed");
         return 0;
     }
-    if (unitType == COAP_MODULE_NAME_TYPE || unitType == COAP_DEVICE_ID_TYPE) {
-        if (outBuf[valueLen - 1] != '\0') {
+    if (unitType == COAP_MODULE_NAME_TYPE || unitType == COAP_DEVICE_ID_TYPE)
+    {
+        if (outBuf[valueLen - 1] != '\0')
+        {
             LOGE(TAG, "uint type is %u but value is not end with 0", unitType);
             return 0;
         }
@@ -508,11 +579,13 @@ static uint16_t GetUnitInfo(const uint8_t *data, uint16_t dataLen, uint8_t *outB
 static uint16_t ParseServiceMsgFrame(const uint8_t *frame, uint16_t size, char *moduleName, char *deviceId,
                                      uint8_t **msg)
 {
-    if (frame == NULL || size == 0) {
+    if (frame == NULL || size == 0)
+    {
         return 0;
     }
     uint16_t frameLen = GetServiceMsgFrameLen(frame, size);
-    if (frameLen < sizeof(frameLen) + sizeof(CoapMsgUnit)) {
+    if (frameLen < sizeof(frameLen) + sizeof(CoapMsgUnit))
+    {
         return 0;
     }
 
@@ -520,7 +593,8 @@ static uint16_t ParseServiceMsgFrame(const uint8_t *frame, uint16_t size, char *
     uint16_t len = sizeof(frameLen);
     uint16_t moduleNameLen = GetUnitInfo(frame + len, frameLen - len, (uint8_t *)moduleName,
                                          NSTACKX_MAX_MODULE_NAME_LEN, COAP_MODULE_NAME_TYPE);
-    if (moduleNameLen == 0 || moduleNameLen + sizeof(CoapMsgUnit) >= frameLen - len) {
+    if (moduleNameLen == 0 || moduleNameLen + sizeof(CoapMsgUnit) >= frameLen - len)
+    {
         return 0;
     }
 
@@ -528,18 +602,21 @@ static uint16_t ParseServiceMsgFrame(const uint8_t *frame, uint16_t size, char *
     len += moduleNameLen + sizeof(CoapMsgUnit);
     uint16_t deviceIdLen = GetUnitInfo(frame + len, frameLen - len, (uint8_t *)deviceId,
                                        NSTACKX_MAX_DEVICE_ID_LEN, COAP_DEVICE_ID_TYPE);
-    if (deviceIdLen == 0 || deviceIdLen + sizeof(CoapMsgUnit) >= frameLen - len) {
+    if (deviceIdLen == 0 || deviceIdLen + sizeof(CoapMsgUnit) >= frameLen - len)
+    {
         return 0;
     }
 
     /* get msg info */
     len += deviceIdLen + sizeof(CoapMsgUnit);
     uint8_t *msgPtr = (uint8_t *)calloc(1U, frameLen - len);
-    if (msgPtr == NULL) {
+    if (msgPtr == NULL)
+    {
         return 0;
     }
     uint16_t msgLen = GetUnitInfo(frame + len, frameLen - len, msgPtr, frameLen - len, COAP_MSG_TYPE);
-    if (msgLen == 0) {
+    if (msgLen == 0)
+    {
         free(msgPtr);
         return 0;
     }
@@ -555,7 +632,8 @@ static void HndPostServiceMsg(coap_context_t *ctx, struct coap_resource_t *resou
     (void)session;
     (void)token;
     (void)query;
-    if (request == NULL || response == NULL) {
+    if (request == NULL || response == NULL)
+    {
         return;
     }
     char deviceId[NSTACKX_MAX_DEVICE_ID_LEN] = {0};
@@ -565,18 +643,21 @@ static void HndPostServiceMsg(coap_context_t *ctx, struct coap_resource_t *resou
     uint16_t msgLen;
     size_t size;
 
-    if (coap_get_data(request, &size, &buf) == 0 || size == 0 || size > COAP_RXBUFFER_SIZE) {
+    if (coap_get_data(request, &size, &buf) == 0 || size == 0 || size > COAP_RXBUFFER_SIZE)
+    {
         return;
     }
 
-    if (!RefreshMsgIdList(request->tid)) {
+    if (!RefreshMsgIdList(request->tid))
+    {
         LOGE(TAG, "repeated msg id");
         return;
     }
 
     LOGD(TAG, "handling post service msg request");
     msgLen = ParseServiceMsgFrame(buf, size, moduleName, deviceId, &msg);
-    if (msgLen == 0) {
+    if (msgLen == 0)
+    {
         LOGD(TAG, "parse service msg frame error");
         return;
     }
@@ -588,6 +669,7 @@ static void HndPostServiceMsg(coap_context_t *ctx, struct coap_resource_t *resou
     return;
 }
 
+//获得InterfaceName，BroadcastIp，discoverUri
 static int32_t CoapPostServiceDiscover(void)
 {
     char ifName[NSTACKX_MAX_INTERFACE_NAME_LEN] = {0};
@@ -595,19 +677,24 @@ static int32_t CoapPostServiceDiscover(void)
     char discoverUri[COAP_URI_BUFFER_LENGTH] = {0};
     char *data = NULL;
 
-    if (GetLocalInterfaceName(ifName, sizeof(ifName)) != NSTACKX_EOK) {
+    if (GetLocalInterfaceName(ifName, sizeof(ifName)) != NSTACKX_EOK)
+    {
         return NSTACKX_EFAILED;
     }
-
-    if (GetIfBroadcastIp(ifName, ipString, sizeof(ipString)) != NSTACKX_EOK) {
+    //3516问题函数入口
+    if (GetIfBroadcastIp(ifName, ipString, sizeof(ipString)) != NSTACKX_EOK)
+    {
         return NSTACKX_EFAILED;
     }
-
-    if (sprintf_s(discoverUri, sizeof(discoverUri), "coap://%s/%s", ipString, COAP_DEVICE_DISCOVER_URI) < 0) {
+    //这个东西应该是发送广播包中用的，3861中也有这个东西
+    if (sprintf_s(discoverUri, sizeof(discoverUri), "coap://%s/%s", ipString, COAP_DEVICE_DISCOVER_URI) < 0)
+    {
         return NSTACKX_EFAILED;
     }
+    //生成json信息，其中包含了设备的各种信息
     data = PrepareServiceDiscover(NSTACKX_TRUE);
-    if (data == NULL) {
+    if (data == NULL)
+    {
         LOGE(TAG, "failed to prepare coap data");
         return NSTACKX_EFAILED;
     }
@@ -617,9 +704,12 @@ static int32_t CoapPostServiceDiscover(void)
 
 static uint32_t GetDiscoverInterval(uint32_t discoverCount)
 {
-    if (discoverCount < COAP_FIRST_DISCOVER_COUNT_RANGE) {
+    if (discoverCount < COAP_FIRST_DISCOVER_COUNT_RANGE)
+    {
         return COAP_FIRST_DISCOVER_INTERVAL;
-    } else if (discoverCount < COAP_SECOND_DISCOVER_COUNT_RANGE) {
+    }
+    else if (discoverCount < COAP_SECOND_DISCOVER_COUNT_RANGE)
+    {
         return COAP_SECOND_DISCOVER_INTERVAL;
     }
     return COAP_LAST_DISCOVER_INTERVAL;
@@ -642,13 +732,15 @@ static void CoapServiceDiscoverTimerHandle(void *argument)
 
     (void)argument;
 
-    if (g_discoverCount >= g_coapDiscoverTargetCount || !IsWifiApConnected()) {
+    if (g_discoverCount >= g_coapDiscoverTargetCount || !IsWifiApConnected())
+    {
         /* Discover done, or wifi AP disconnected. */
         CoapServiceDiscoverStop();
         return;
     }
 
-    if (CoapPostServiceDiscover() != NSTACKX_EOK) {
+    if (CoapPostServiceDiscover() != NSTACKX_EOK)
+    {
         LOGE(TAG, "failed to post service discover request");
         goto L_ERR_SERVICE_DISCOVER;
     }
@@ -658,7 +750,8 @@ static void CoapServiceDiscoverTimerHandle(void *argument)
     discoverInterval = GetDiscoverInterval(g_discoverCount);
 
     ++g_discoverCount;
-    if (TimerSetTimeout(g_discoverTimer, discoverInterval, NSTACKX_FALSE) != NSTACKX_EOK) {
+    if (TimerSetTimeout(g_discoverTimer, discoverInterval, NSTACKX_FALSE) != NSTACKX_EOK)
+    {
         LOGE(TAG, "failed to set timer for service discover");
         goto L_ERR_SERVICE_DISCOVER;
     }
@@ -680,7 +773,8 @@ void CoapInitSubscribeModuleInner(void)
 
 void CoapSubscribeModuleInner(uint8_t isSubscribe)
 {
-    if (isSubscribe && (g_subscribeCount < COAP_MAX_NUM_SUBSCRIBE_MODULE_COUNT)) {
+    if (isSubscribe && (g_subscribeCount < COAP_MAX_NUM_SUBSCRIBE_MODULE_COUNT))
+    {
         g_subscribeCount++;
     }
     return;
@@ -688,7 +782,8 @@ void CoapSubscribeModuleInner(uint8_t isSubscribe)
 
 void CoapUnsubscribeModuleInner(uint8_t isUnsubscribe)
 {
-    if (isUnsubscribe && (g_subscribeCount > 0)) {
+    if (isUnsubscribe && (g_subscribeCount > 0))
+    {
         g_subscribeCount--;
     }
     return;
@@ -697,16 +792,22 @@ void CoapUnsubscribeModuleInner(uint8_t isUnsubscribe)
 void CoapServiceDiscoverInner(uint8_t userRequest)
 {
     uint32_t discoverInterval;
-    if (!IsWifiApConnected() || g_context == NULL) {
+    //判断网络是否连接
+    if (!IsWifiApConnected() || g_context == NULL)
+    {
         return;
     }
 
-    if (userRequest) {
+    //userRequest==INNER_DISCOVERY时，设置下面两个参数。
+    if (userRequest)
+    {
         g_userRequest = NSTACKX_TRUE;
         g_forceUpdate = NSTACKX_TRUE;
     }
 
-    if (g_coapDiscoverTargetCount > 0 && g_discoverCount >= g_coapDiscoverTargetCount) {
+    //计数值设置为零，清空device list backup
+    if (g_coapDiscoverTargetCount > 0 && g_discoverCount >= g_coapDiscoverTargetCount)
+    {
         g_discoverCount = 0;
         SetModeInfo(DISCOVER_MODE);
         ClearDevices(GetDeviceDBBackup());
@@ -714,12 +815,18 @@ void CoapServiceDiscoverInner(uint8_t userRequest)
         TimerSetTimeout(g_discoverTimer, 0, NSTACKX_FALSE);
     }
 
-    if (g_discoverCount) {
+    //discover若正在进行则返回
+    if (g_discoverCount)
+    {
         /* Service discover is ongoing, return. */
         return;
-    } else {
+    }
+    else
+    {
         /* First discover */
-        if (BackupDeviceDB() != NSTACKX_EOK) {
+        //备份当前g_deviceList，然后清空当前g_deviceList
+        if (BackupDeviceDB() != NSTACKX_EOK)
+        {
             LOGE(TAG, "backup device list fail");
             return;
         }
@@ -727,14 +834,18 @@ void CoapServiceDiscoverInner(uint8_t userRequest)
         LOGW(TAG, "clear device list");
         g_coapDiscoverTargetCount = g_coapMaxDiscoverCount;
     }
+    //设置模式为DISCOVER_MODE
     SetModeInfo(DISCOVER_MODE);
-    if (CoapPostServiceDiscover() != NSTACKX_EOK) {
+
+    if (CoapPostServiceDiscover() != NSTACKX_EOK)
+    {
         LOGE(TAG, "failed to post service discover request");
         return;
     }
 
     discoverInterval = GetDiscoverInterval(g_discoverCount);
-    if (TimerSetTimeout(g_discoverTimer, discoverInterval, NSTACKX_FALSE) != NSTACKX_EOK) {
+    if (TimerSetTimeout(g_discoverTimer, discoverInterval, NSTACKX_FALSE) != NSTACKX_EOK)
+    {
         LOGE(TAG, "failed to set timer for service discover");
         return;
     }
@@ -746,29 +857,36 @@ void CoapServiceDiscoverInner(uint8_t userRequest)
 
 void CoapServiceDiscoverInnerAn(uint8_t userRequest)
 {
-    if (!IsWifiApConnected() || g_context == NULL) {
+    if (!IsWifiApConnected() || g_context == NULL)
+    {
         return;
     }
 
-    if (userRequest) {
+    if (userRequest)
+    {
         g_userRequest = NSTACKX_TRUE;
     }
 
-    if (g_discoverCount) {
+    if (g_discoverCount)
+    {
         g_discoverCount = 0;
         /* Service discover is ongoing, reset. */
         TimerSetTimeout(g_discoverTimer, 0, NSTACKX_FALSE);
-    } else {
+    }
+    else
+    {
         g_coapDiscoverTargetCount = g_coapMaxDiscoverCount;
     }
 
-    if (CoapPostServiceDiscover() != NSTACKX_EOK) {
+    if (CoapPostServiceDiscover() != NSTACKX_EOK)
+    {
         LOGE(TAG, "failed to post service discover request");
         return;
     }
 
     uint32_t discoverInterval = GetDiscoverInterval(g_discoverCount);
-    if (TimerSetTimeout(g_discoverTimer, discoverInterval, NSTACKX_FALSE) != NSTACKX_EOK) {
+    if (TimerSetTimeout(g_discoverTimer, discoverInterval, NSTACKX_FALSE) != NSTACKX_EOK)
+    {
         LOGE(TAG, "failed to set timer for service discover");
         return;
     }
@@ -805,11 +923,13 @@ static uint8_t *CreateServiceMsgFrame(const char *moduleName, const char *device
     frameLen = htons(bufferLen);
 
     frame = (uint8_t *)calloc(1U, bufferLen);
-    if (frame == NULL) {
+    if (frame == NULL)
+    {
         return NULL;
     }
 
-    if (memcpy_s(frame, bufferLen, &frameLen, sizeof(frameLen)) != EOK) {
+    if (memcpy_s(frame, bufferLen, &frameLen, sizeof(frameLen)) != EOK)
+    {
         goto L_ERR_SEND_MSG;
     }
     len += sizeof(frameLen);
@@ -817,7 +937,8 @@ static uint8_t *CreateServiceMsgFrame(const char *moduleName, const char *device
     unit = (CoapMsgUnit *)(frame + len);
     unit->type = COAP_MODULE_NAME_TYPE;
     unit->len = htons(moduleNameUnitLen - sizeof(CoapMsgUnit));
-    if (memcpy_s(unit->value, bufferLen - len - sizeof(CoapMsgUnit), moduleName, strlen(moduleName) + 1) != EOK) {
+    if (memcpy_s(unit->value, bufferLen - len - sizeof(CoapMsgUnit), moduleName, strlen(moduleName) + 1) != EOK)
+    {
         goto L_ERR_SEND_MSG;
     }
     len += moduleNameUnitLen;
@@ -825,7 +946,8 @@ static uint8_t *CreateServiceMsgFrame(const char *moduleName, const char *device
     unit = (CoapMsgUnit *)(frame + len);
     unit->type = COAP_DEVICE_ID_TYPE;
     unit->len = htons(deviceIdUnitLen - sizeof(CoapMsgUnit));
-    if (memcpy_s(unit->value, bufferLen - len - sizeof(CoapMsgUnit), deviceId, strlen(deviceId) + 1) != EOK) {
+    if (memcpy_s(unit->value, bufferLen - len - sizeof(CoapMsgUnit), deviceId, strlen(deviceId) + 1) != EOK)
+    {
         goto L_ERR_SEND_MSG;
     }
     len += deviceIdUnitLen;
@@ -833,7 +955,8 @@ static uint8_t *CreateServiceMsgFrame(const char *moduleName, const char *device
     unit = (CoapMsgUnit *)(frame + len);
     unit->type = COAP_MSG_TYPE;
     unit->len = htons(msgUnitLen - sizeof(CoapMsgUnit));
-    if (memcpy_s(unit->value, bufferLen - len - sizeof(CoapMsgUnit), msg, msgLen) != EOK) {
+    if (memcpy_s(unit->value, bufferLen - len - sizeof(CoapMsgUnit), msg, msgLen) != EOK)
+    {
         goto L_ERR_SEND_MSG;
     }
     *dataLen = bufferLen;
@@ -850,22 +973,32 @@ int32_t CoapSendServiceMsg(MsgCtx *msgCtx, DeviceInfo *deviceInfo)
 
 coap_context_t *GetContext(uint8_t serverType)
 {
-    if (serverType == SERVER_TYPE_WLANORETH) {
-        if (g_context == NULL) {
+    if (serverType == SERVER_TYPE_WLANORETH)
+    {
+        if (g_context == NULL)
+        {
             LOGE(TAG, "DefiniteTargetIp getContext: g_context for wlan or eth is null");
         }
         return g_context;
-    } else if (serverType == SERVER_TYPE_P2P) {
-        if (g_p2pContext == NULL) {
+    }
+    else if (serverType == SERVER_TYPE_P2P)
+    {
+        if (g_p2pContext == NULL)
+        {
             LOGE(TAG, "DefiniteTargetIp getContext: g_p2pContext for p2p is null");
         }
         return g_p2pContext;
-    } else if (serverType == SERVER_TYPE_USB) {
-        if (g_usbContext == NULL) {
+    }
+    else if (serverType == SERVER_TYPE_USB)
+    {
+        if (g_usbContext == NULL)
+        {
             LOGE(TAG, "DefiniteTargetIp getContext: g_usbContext for usb is null");
         }
         return g_usbContext;
-    } else {
+    }
+    else
+    {
         LOGE(TAG, "Coap serverType is unknown");
         return NULL;
     }
@@ -879,31 +1012,40 @@ int32_t CoapSendServiceMsgWithDefiniteTargetIp(MsgCtx *msgCtx, DeviceInfo *devic
     uint8_t actualType = GetActualType(msgCtx->type, msgCtx->p2pAddr);
     char *data = NULL;
     LOGD(TAG, "actualType is %hhu", actualType);
-    if (msgCtx->len == 0 || msgCtx->len > NSTACKX_MAX_SENDMSG_DATA_LEN) {
+    if (msgCtx->len == 0 || msgCtx->len > NSTACKX_MAX_SENDMSG_DATA_LEN)
+    {
         return NSTACKX_EINVAL;
     }
 
-    if (strlen(msgCtx->p2pAddr) == 0) {
-        if (deviceInfo == NULL) {
+    if (strlen(msgCtx->p2pAddr) == 0)
+    {
+        if (deviceInfo == NULL)
+        {
             return NSTACKX_EFAILED;
         }
-        if (inet_ntop(AF_INET, &deviceInfo->netChannelInfo.wifiApInfo.ip, ipString, sizeof(ipString)) == NULL) {
+        if (inet_ntop(AF_INET, &deviceInfo->netChannelInfo.wifiApInfo.ip, ipString, sizeof(ipString)) == NULL)
+        {
             LOGE(TAG, "inet_ntop failed: %d", errno);
             return NSTACKX_EFAILED;
         }
-    } else {
-        if (strcpy_s(ipString, sizeof(ipString), msgCtx->p2pAddr) != EOK) {
+    }
+    else
+    {
+        if (strcpy_s(ipString, sizeof(ipString), msgCtx->p2pAddr) != EOK)
+        {
             LOGE(TAG, "failed to get ip");
             return NSTACKX_EFAILED;
         }
     }
 
-    if (sprintf_s(uriBuffer, sizeof(uriBuffer), "coap://%s/" COAP_SERVICE_MSG_URI, ipString) < 0) {
+    if (sprintf_s(uriBuffer, sizeof(uriBuffer), "coap://%s/" COAP_SERVICE_MSG_URI, ipString) < 0)
+    {
         return NSTACKX_EFAILED;
     }
     data = (char *)CreateServiceMsgFrame(msgCtx->moduleName,
-        GetLocalDeviceInfoPtr()->deviceId, msgCtx->data, msgCtx->len, &dataLen);
-    if (data == NULL) {
+                                         GetLocalDeviceInfoPtr()->deviceId, msgCtx->data, msgCtx->len, &dataLen);
+    if (data == NULL)
+    {
         LOGE(TAG, "failed to prepare msg data");
         return NSTACKX_EFAILED;
     }
@@ -912,23 +1054,28 @@ int32_t CoapSendServiceMsgWithDefiniteTargetIp(MsgCtx *msgCtx, DeviceInfo *devic
 
 uint8_t GetActualType(const uint8_t type, const char *dstIp)
 {
-    if (type != INVALID_TYPE) {
+    if (type != INVALID_TYPE)
+    {
         return type;
     }
     struct sockaddr_in localAddr;
     localAddr.sin_addr.s_addr = inet_addr(dstIp);
     struct ifreq localDev;
     GetTargetInterface(&localAddr, &localDev);
-    if (IsWlanIpAddr(localDev.ifr_ifrn.ifrn_name) == NSTACKX_TRUE) {
+    if (IsWlanIpAddr(localDev.ifr_ifrn.ifrn_name) == NSTACKX_TRUE)
+    {
         return SERVER_TYPE_WLANORETH;
     }
-    if (IsEthIpAddr(localDev.ifr_ifrn.ifrn_name) == NSTACKX_TRUE) {
+    if (IsEthIpAddr(localDev.ifr_ifrn.ifrn_name) == NSTACKX_TRUE)
+    {
         return SERVER_TYPE_WLANORETH;
     }
-    if (IsP2pIpAddr(localDev.ifr_ifrn.ifrn_name) == NSTACKX_TRUE) {
+    if (IsP2pIpAddr(localDev.ifr_ifrn.ifrn_name) == NSTACKX_TRUE)
+    {
         return SERVER_TYPE_P2P;
     }
-    if (IsUsbIpAddr(localDev.ifr_ifrn.ifrn_name) == NSTACKX_TRUE) {
+    if (IsUsbIpAddr(localDev.ifr_ifrn.ifrn_name) == NSTACKX_TRUE)
+    {
         return SERVER_TYPE_USB;
     }
     return type;
@@ -937,7 +1084,8 @@ uint8_t GetActualType(const uint8_t type, const char *dstIp)
 static void CoapRecvRecountTimerHandle(void *argument)
 {
     (void)argument;
-    if (g_recvDiscoverMsgNum > COAP_DISVOCER_MAX_RATE) {
+    if (g_recvDiscoverMsgNum > COAP_DISVOCER_MAX_RATE)
+    {
         LOGI(TAG, "received %u discover msg in this interval", g_recvDiscoverMsgNum);
     }
     g_recvDiscoverMsgNum = 0;
@@ -949,7 +1097,8 @@ void CoapInitResources(coap_context_t *ctx, uint8_t serverType)
     coap_resource_t *r = NULL;
 
     r = coap_resource_init(coap_make_str_const(COAP_DEVICE_DISCOVER_URI), g_resourceFlags);
-    if (r == NULL) {
+    if (r == NULL)
+    {
         return;
     }
     coap_register_handler(r, COAP_REQUEST_POST, HndPostServiceDiscover);
@@ -957,41 +1106,53 @@ void CoapInitResources(coap_context_t *ctx, uint8_t serverType)
     coap_add_resource(ctx, r);
 
     r = coap_resource_init(coap_make_str_const(COAP_SERVICE_MSG_URI), 0);
-    if (r == NULL) {
+    if (r == NULL)
+    {
         return;
     }
     coap_register_handler(r, COAP_REQUEST_POST, HndPostServiceMsg);
     coap_add_resource(ctx, r);
 
-    if (serverType == SERVER_TYPE_WLANORETH) {
+    if (serverType == SERVER_TYPE_WLANORETH)
+    {
         g_context = ctx;
         LOGD(TAG, "CoapInitResources g_wlanOrEthContext update");
-    } else if (serverType == SERVER_TYPE_P2P) {
+    }
+    else if (serverType == SERVER_TYPE_P2P)
+    {
         g_p2pContext = ctx;
         LOGD(TAG, "CoapInitResources g_p2pContext update");
-    } else if (serverType == SERVER_TYPE_USB) {
+    }
+    else if (serverType == SERVER_TYPE_USB)
+    {
         g_usbContext = ctx;
         LOGD(TAG, "CoapInitResources g_usbContext update");
-    } else {
+    }
+    else
+    {
         LOGE(TAG, "CoapInitResources serverType is unknown!");
     }
 }
 
 int32_t CoapDiscoverInit(EpollDesc epollfd)
 {
-    if (g_recvRecountTimer == NULL) {
+    if (g_recvRecountTimer == NULL)
+    {
         g_recvRecountTimer = TimerStart(epollfd, COAP_RECV_COUNT_INTERVAL, NSTACKX_TRUE,
                                         CoapRecvRecountTimerHandle, NULL);
     }
-    if (g_recvRecountTimer == NULL) {
+    if (g_recvRecountTimer == NULL)
+    {
         LOGE(TAG, "failed to start timer for receive discover message recount");
         return NSTACKX_EFAILED;
     }
 
-    if (g_discoverTimer == NULL) {
+    if (g_discoverTimer == NULL)
+    {
         g_discoverTimer = TimerStart(epollfd, 0, NSTACKX_FALSE, CoapServiceDiscoverTimerHandle, NULL);
     }
-    if (g_discoverTimer == NULL) {
+    if (g_discoverTimer == NULL)
+    {
         LOGE(TAG, "failed to start timer for service discover");
         TimerDelete(g_recvRecountTimer);
         g_recvRecountTimer = NULL;
@@ -999,7 +1160,8 @@ int32_t CoapDiscoverInit(EpollDesc epollfd)
     }
 
     g_msgIdList = (MsgIdList *)calloc(1U, sizeof(MsgIdList));
-    if (g_msgIdList == NULL) {
+    if (g_msgIdList == NULL)
+    {
         LOGE(TAG, "message Id record list calloc error");
         TimerDelete(g_discoverTimer);
         g_discoverTimer = NULL;
@@ -1020,31 +1182,41 @@ int32_t CoapDiscoverInit(EpollDesc epollfd)
 
 void CoapDestroyCtx(uint8_t serverType)
 {
-    if (serverType == SERVER_TYPE_WLANORETH) {
+    if (serverType == SERVER_TYPE_WLANORETH)
+    {
         g_context = NULL;
         LOGD(TAG, "CoapDestroyCtx, g_context is set to NULL");
-    } else if (serverType == SERVER_TYPE_P2P) {
+    }
+    else if (serverType == SERVER_TYPE_P2P)
+    {
         g_p2pContext = NULL;
         LOGD(TAG, "CoapDestroyCtx, g_p2pContext is set to NULL");
-    } else if (serverType == SERVER_TYPE_USB) {
+    }
+    else if (serverType == SERVER_TYPE_USB)
+    {
         g_usbContext = NULL;
         LOGD(TAG, "CoapDestroyCtx, g_usbContext is set to NULL");
-    } else {
+    }
+    else
+    {
         LOGE(TAG, "CoapDestroyCtx, serverType is unknown");
     }
 }
 
 void CoapDiscoverDeinit(void)
 {
-    if (g_discoverTimer != NULL) {
+    if (g_discoverTimer != NULL)
+    {
         TimerDelete(g_discoverTimer);
         g_discoverTimer = NULL;
     }
-    if (g_recvRecountTimer != NULL) {
+    if (g_recvRecountTimer != NULL)
+    {
         TimerDelete(g_recvRecountTimer);
         g_recvRecountTimer = NULL;
     }
-    if (g_msgIdList != NULL) {
+    if (g_msgIdList != NULL)
+    {
         free(g_msgIdList);
         g_msgIdList = NULL;
     }
@@ -1052,14 +1224,18 @@ void CoapDiscoverDeinit(void)
 
 void ResetCoapDiscoverTaskCount(uint8_t isBusy)
 {
-    if (g_discoverTimer != NULL) {
-        if (isBusy) {
+    if (g_discoverTimer != NULL)
+    {
+        if (isBusy)
+        {
             LOGI(TAG, "in this busy interval: g_discoverTimer task count %llu", g_discoverTimer->task.count);
         }
         g_discoverTimer->task.count = 0;
     }
-    if (g_recvRecountTimer != NULL) {
-        if (isBusy) {
+    if (g_recvRecountTimer != NULL)
+    {
+        if (isBusy)
+        {
             LOGI(TAG, "in this busy interval: g_recvRecountTimer task count %llu", g_recvRecountTimer->task.count);
         }
         g_recvRecountTimer->task.count = 0;

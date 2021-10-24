@@ -255,6 +255,7 @@ int32_t GetIfBroadcastIp(const char *ifName, char *ipString, size_t ipStringLen)
         return NSTACKX_EFAILED;
     }
 
+    //获取接口列表
     int32_t fd = GetInterfaceList(&ifc, buf, sizeof(buf));
     if (fd < 0) {
         return NSTACKX_EFAILED;
@@ -262,13 +263,18 @@ int32_t GetIfBroadcastIp(const char *ifName, char *ipString, size_t ipStringLen)
 
     int32_t ifreqLen = (int32_t)sizeof(struct ifreq);
     int32_t interfaceNum = (int32_t)(ifc.ifc_len / ifreqLen);
-    for (int32_t i = 0; i < interfaceNum && i < INTERFACE_MAX; i++) {
+
+    //进行比较，通过ifName找到对应的ip地址，然后置foundIp为真，没找到则为假
+    for (int32_t i = 0; i < interfaceNum && i < INTERFACE_MAX; i++)
+    {
+
         if (strlen(buf[i].ifr_name) < strlen(ifName)) {
             continue;
         }
         if (memcmp(buf[i].ifr_name, ifName, strlen(ifName)) != 0) {
             continue;
         }
+        //问题
         if (GetInterfaceInfo(fd, SIOCGIFBRDADDR, &buf[i]) != NSTACKX_EOK) {
             continue;
         }
@@ -280,6 +286,7 @@ int32_t GetIfBroadcastIp(const char *ifName, char *ipString, size_t ipStringLen)
             (socklen_t)ipStringLen) == NULL) {
             continue;
         }
+        //出现问题的地方
         foundIp = NSTACKX_TRUE;
         break;
     }

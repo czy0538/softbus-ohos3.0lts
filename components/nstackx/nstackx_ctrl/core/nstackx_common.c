@@ -296,6 +296,7 @@ static void DeviceDiscoverStopInner(void *argument)
     CoapServiceDiscoverStopInner();
 }
 
+//从DiscCoapStartDiscovery来
 int32_t NSTACKX_StartDeviceFind(void)
 {
     if (g_nstackInitState != NSTACKX_INIT_STATE_DONE) {

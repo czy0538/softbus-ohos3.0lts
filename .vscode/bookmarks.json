@@ -44,9 +44,19 @@
 			"path": "components/nstackx/nstackx_ctrl/core/coap_discover/coap_discover.c",
 			"bookmarks": [
 				{
-					"line": 731,
+					"line": 841,
 					"column": 8,
 					"label": "问题3"
+				}
+			]
+		},
+		{
+			"path": "core/frame/common/src/softbus_server_frame.c",
+			"bookmarks": [
+				{
+					"line": 45,
+					"column": 0,
+					"label": "系统服务入口"
 				}
 			]
 		}
