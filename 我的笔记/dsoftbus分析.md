@@ -384,15 +384,18 @@ int32_t GetIfBroadcastIp(const char *ifName, char *ipString, size_t ipStringLen)
 
     int32_t ifreqLen = (int32_t)sizeof(struct ifreq);
     int32_t interfaceNum = (int32_t)(ifc.ifc_len / ifreqLen);
+
     //进行比较，通过ifName找到对应的ip地址，然后置foundIp为真，没找到则为假
     for (int32_t i = 0; i < interfaceNum && i < INTERFACE_MAX; i++)
     {
+
         if (strlen(buf[i].ifr_name) < strlen(ifName)) {
             continue;
         }
         if (memcmp(buf[i].ifr_name, ifName, strlen(ifName)) != 0) {
             continue;
         }
+        //问题
         if (GetInterfaceInfo(fd, SIOCGIFBRDADDR, &buf[i]) != NSTACKX_EOK) {
             continue;
         }
@@ -416,7 +419,6 @@ int32_t GetIfBroadcastIp(const char *ifName, char *ipString, size_t ipStringLen)
 
     return NSTACKX_EOK;
 }
-
 ```
 
 
@@ -599,4 +601,243 @@ L_END_JSON:
   2 nStackXCoAP: CoapServiceDiscoverInner:[747] :failed to post service discover request
   ```
 
+- 94672c694810bb01cfbb3cac7f89cf3c4739db90 上述问题不好解决，我们直接在`CoapPostServiceDiscover`上动手，手动输入广播地址为我们的地址
+
+  ```c
+  OHOS # start discoveryTask
+  [czy_test]ret is:0
+  [czy_test]waiting!!!
+  [CZY_TEST] enter CoapStartAdvertise
+  [CZY_TEST] enter  DiscCoapStartDiscovery
+  [CZY_TEST_DiscCoapStartDiscovery] mode is ACTIVE_DISCOVERY
+  [CZY_TEST_NSTACKX_StartDeviceFind] enter
+  [czy_test]TestDiscoverySuccess
+  [CZY_TEST_DeviceDiscoverInner] enter
+  [CZY_TEST_CoapServiceDiscoverInner] enter
+  [CZY_TEST_CoapPostServiceDiscover] enter
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] print some info might be sent--------------
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] ipString:192.168.137.255
+  [CZY_TEST_CoapPostServiceDiscover] discoverUri:coap://192.168.137.255/device_discover
+  [CZY_TEST_CoapPostServiceDiscover] data:{"deviceId":"{\"UDID\":\"ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00\"}","devicename":"UNKNOWN","type":0,"hicomversion":"hm.1.0.0","mode":1,"deviceHash":"","serviceData":"port:59565,","wlanIp":"192.168.1.10","capabilityBitmap":[64],"coapUri":"coap://192.168.1.10/device_discover"}
+  [CZY_TEST_CoapPostServiceDiscover] print some info end--------------
+  [CZY_TEST_CoapSendRequest] enter
+  Jan 01 00:01:53 ERR  interface is not up
+  [CZY_TEST_CoapSendRequest] CoapGetSessionOnTargetServer success
+  [CZY_TEST_CoapSendRequest] CoapPackToPdu success
+  Jan 01 00:01:53 CRIT coap_network_send: Host is unreachable
+  [CZY_TEST_CoapSendRequest] coap_send suwrite file switch /storage/data/log/hilog2.txt
+  ccess
+  01-01 00:01:53.175 15 48 I 015C0/dsoftbus_standard: [LNN]BusCenterClientInit init OK!
+  2 nStackXCoAP: CoapSendRequest:[240] :coap send failed
+  01-01 00:01:53.175 15 48 I 015C0/dsoftbus_standard: [DISC]disc start get server proxy
+  2 nStackXCoAP: CoapServiceDiscoverInner:[750] :failed to post service discover request
+  01-01 00:01:53.175 15 48 I 015C0/dsoftbus_standard: [DISC]disc get server proxy ok
+  01-01 00:01:53.175 15 48 I 015C0/dsoftbus_standard: [DISC]Init success
   
+  ```
+
+  分析信息我们注意到，当前wlanIp为一个奇怪的地址，而非我们当前的地址。因此我们**杀死服务然后重启**，成功！
+
+  3516端报文
+
+  ```c
+  OHOS # ./softbusDiscovery
+  OHOS # start discoveryTask
+  01-01 00:14:16.332 20 100 I 015C0/dsoftbus_standard: [LNN]NodeStateCbCount is 10
+  [CZY_TEST] enter CoapStartAdvertise
+  4 nStackXDFinder: NSTACKX_SetFilterCapability:[518] :Set Filter Capability
+  [CZY_TEST] enter  DiscCoapStartDiscovery
+  [CZY_TEST_DiscCoapStartDiscovery] mode is ACTIVE_DISCOVERY
+  [CZY_TEST_NSTACKX_StartDeviceFind] enter
+  3 nStackXCoAP: CoapServiceDiscoverStop:[651] :clear device list backup
+  4 nStackXCoAP: CoapServiceDiscoverStopInner:[803] :device discover stopped
+  [CZY_TEST_DeviceDiscoverInner] enter
+  [CZY_TEST_CoapServiceDiscoverInner] enter
+  2 nStackXDFinder: BackupDeviceDB:[1180] :clear backupDB error
+  3 nStackXCoAP: CoapServiceDiscoverInner:[745] :clear device list
+  [CZY_TEST_CoapPostServiceDiscover] enter
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] print some info might be sent--------------
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] ipString:192.168.137.255
+  [CZY_TEST_CoapPostServiceDiscover] discoverUri:coap://192.168.137.255/device_discover
+  [CZY_TEST_CoapPostServiceDiscover] data:{"deviceId":"{\"UDID\":\"ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00\"}","devicename":"UNKNOWN","type":0,"hicomversion":"hm.1.0.0","mode":1,"deviceHash":"","serviceData":"port:59567,","wlanIp":"192.168.137.120","capabilityBitmap":[64],"coapUri":"coap://192.168.137.120/device_discover"}
+  [CZY_TEST_CoapPostServiceDiscover] print some info end--------------
+  [czy_test]ret is:0
+  [czy_test]waiting!!!
+  [czy_test]TestDiscoverySuccess
+  [CZY_TEST_CoapSendRequest] enter
+  Jan 01 00:14:16 ERR  interface is not up
+  [CZY_TEST_CoapSendRequest] CoapGetSessionOnTargetServer success
+  [CZY_TEST_CoapSendRequest] CoapPackToPdu success
+      
+  //报文发送成功
+  [CZY_TEST_CoapSendRequest] coap_send success
+      
+  4 nStackXCoAP: CoapServiceDiscoverInner:[760] :the first time for device discover.
+  01-01 00:14:16.332 20 100 I 015C0/dsoftbus_standard: [LNN]bus center start get server proxy
+  01-01 00:14:16.332 20 100 I 01800/Samgr: Initialize Client Registry!
+  01-01 00:14:16.333 3 35 D 01800/Samgr: Judge Auth<softbus_service, (null)> ret:0
+  01-01 00:14:16.333 3 35 D 01800/Samgr: Find Feature<softbus_service, (null)> id<91, 0> ret:0
+  01-01 00:14:16.333 20 100 I 01800/Samgr: Create remote sa proxy[0x24f84260]<softbus_service, (null)>!
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [LNN]bus 4 nStackXCoAP: GetServiceDiscoverInfo:[280] :data is not end with 0
+  3 nStackXCoAP: ParseDeviceJsonData:[172] :Can't find hicom version
+  4 nStackXDFinder: NotifyDeviceListChanged:[763] :notify callback: device list changed
+  4 nStackXDFinder: NotifyDeviceListChanged:[765] :finish to notify device list changed
+  4 nStackXDFinder: NotifyDeviceFound:[778] :notify callback: device found callback is null
+  //设备发现！！！
+  [czy_test]TestDeviceFound
+      
+  center get server proxy ok
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [LNN]BusCenterClientInit init OK!
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [DISC]disc start get server proxy
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [DISC]disc get server proxy ok
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [DISC]Init success
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [TRAN]trans start get server proxy
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [TRAN]trans get server proxy ok
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [TRAN[CZY_TEST_CoapPostServiceDiscover] enter
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] print some info might be sent--------------
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] ipString:192.168.137.255
+  [CZY_TEST_CoapPostServiceDiscover] discoverUri:coap://192.168.137.255/device_discover
+  [CZY_TEST_CoapPostServiceDiscover] data:{"deviceId":"{\"UDID\":\"ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00\"}","devicename":"UNKNOWN","type":0,"hicomversion":"hm.1.0.0","mode":1,"deviceHash":"","serviceData":"port:59567,","wlanIp":"192.168.137.120","capabilityBitmap":[64],"coapUri":"coap://192.168.137.120/device_discover"}
+  [CZY_TEST_CoapPostServiceDiscover] print some info end--------------
+  [CZY_TEST_CoapSendRequest] enter
+  Jan 01 00:14:16 ERR  interface is not up
+  [CZY_TEST_CoapSendRequest] CoapGetSessionOnTargetServer success
+  [CZY_TEST_CoapSendRequest] CoapPackToPdu success
+  [CZY_TEST_CoapSendRequest] coap_send success
+  4 nStackXCoAP: CoapServiceDiscoverTimerHandle:[672] :the 2 times for device discover.
+  4 nStackXCoAP: GetServiceDiscoverInfo:[280] :data is not end with 0
+  3 nStackXCoAP: ParseDeviceJsonData:[172] :Can't find hicom version
+  ]init tcp direct channel success.
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [TRAN]trans udp channel manager init success.
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [TRAN]init succ
+  write file switch /storage/data/log/hilog2.txt
+  01-01 00:14:16.333 20 100 I 01800/Samgr: Bootstrap core services(count:0).
+  01-01 00:14:16.333 20 100 I 01800/Samgr: Initialized all core system services!
+  01-01 00:14:16.333 20 100 I 01800/Samgr: Goto next boot step return code:-9
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [COMM]start get client proxy
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [COMM]frame get client proxy ok
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [COMM]ServerProvideInterfaceInit ok
+  01-01 00:14:16.333 20 100 I 015C0/dsoftbus_standard: [COMM]server register service client push.
+  01-01 00:14:16.334 17 95 I 015C0/dsoftbus_standard: [COMM]RECEIVE FUNCID:0
+  01-01 00:14:16.334 17 95 I 015C0/dsoftbus_standard: [COMM]register service ipc server pop.
+  01-01 00:14:16.334 17 95 I 015C0/dsoftbus_standard: [COMM]CheckSoftBusSysPermission uid:2 success
+  01-01 00:14:16.334 17 95 I 015C0/dsoftbus_standard: [COMM]new client register:czypkgName
+  01-01 00:14:16.334 20 100 I 015C0/dsoftbus_standard: [COMM]retvalue:0
+  01-01 00:14:16.334 20 100 I 015C0/dsoftbus_standard: [COMM]success
+  01-01 00:14:16.334 20 100 I 015C0/dsoftbus_standard: [COMM]softbus sdk frame init success.
+  01-01 00:14:16.334 20 100 I 015C0/dsoftbus_standard: [DISC]start discovery ipc client push.
+  01-01 00:14:16.334 17 95 I 015C0/dsoftbus_standard: [COMM]RECEIVE FUNCID:137
+  01-01 00:14:16.334 17 95 I 015C0/dsoftbus_standard: [COMM]start discovery ipc server pop.
+  01-01 00:14:16.334 17 95 I 015C0/dsoftbus_standard: [COMM]CheckSoftBusSysPermission uid:2 success
+  01-01 00:14:16.334 17 95 I 015C0/dsoftbus_standard: [DISC]register input bitmap = [32].
+  01-01 00:14:16.334 17 95 I 015C0/dsoftbus_standard: [DISC]register all cap bitmap = [96].
+  01-01 00:14:16.335 17 95 I 015C0/dsoftbus_standard: [DISC]coap start active discovery.
+  01-01 00:14:16.335 17 95 I 015C0/dsoftbus_standard: [DISC]ServerStartDiscovery success!
+  [CZY_TEST_CoapPostServiceDiscover] enters_standard: [DISC]on discovery success callback ipc server push.
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] print some info might be sent--------------
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] ipString:192.168.137.255
+  [CZY_TEST_CoapPostServiceDiscover] discoverUri:coap://192.168.137.255/device_discover
+  [CZY_TEST_CoapPostServiceDiscover] data:{"deviceId":"{\"UDID\":\"ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00\"}","devicename":"UNKNOWN","type":0,"hicomversion":"hm.1.0.0","mode":1,"deviceHash":"","serviceData":"port:59567,","wlanIp":"192.168.137.120","capabilityBitmap":[64],"coapUri":"coap://192.168.137.120/device_discover"}
+  [CZY_TEST_CoapPostServiceDiscover] print some info end--------------
+  [CZY_TEST_CoapSendRequest] enter
+  Jan 01 00:14:16 ERR  interface is not up
+  [CZY_TEST_CoapSendRequest] CoapGetSessionOnTargetServer success
+  [CZY_TEST_CoapSendRequest] CoapPackToPdu success
+  [CZY_TEST_CoapSendRequest] coap_send success
+  4 nStackXCoAP: CoapServiceDiscoverTimerHandle:[672] :the 3 times for device discover.
+  4 nStackXCoAP: GetServiceDiscoverInfo:[280] :data is not end with 0
+  3 nStackXCoAP: ParseDeviceJsonData:[172] :Can't find hicom version
+  
+  01-01 00:14:16.358 20 98 I 015C0/dsoftbus_standard: [COMM]receive ipc transact code(260)
+  write file switch /storage/data/log/hilog1.txt
+  01-01 00:14:16.358 20 98 I 015C0/dsoftbus_standard: [DISC]Sdk OnDiscoverySuccess, subscribeId = 233
+  01-01 00:14:16.448 17 87 I 015C0/dsoftbus_standard: [DISC]Server OnDeviceFound capabilityBitmap = 32
+  01-01 00:14:16.448 17 87 I 015C0/dsoftbus_standard: [DISC]find callback:id = 233
+  01-01 00:14:16.448 17 87 I 015C0/dsoftbus_standard: [DISC]ondevice found ipc server push.
+  01-01 00:14:16.449 20 98 I 015C0/dsoftbus_standard: [COMM]receive ipc transact code(262)
+  01-01 00:14:16.449 20 98 I 015C0/dsoftbus_standard: [DISC]Sdk OnDeviceFound, capabilityBitmap = 32
+  [CZY_TEST_CoapPostServiceDiscover] enter
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] print some info might be sent--------------
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] ipString:192.168.137.255
+  [CZY_TEST_CoapPostServiceDiscover] discoverUri:coap://192.168.137.255/device_discover
+  [CZY_TEST_CoapPostServiceDiscover] data:{"deviceId":"{\"UDID\":\"ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00\"}","devicename":"UNKNOWN","type":0,"hicomversion":"hm.1.0.0","mode":1,"deviceHash":"","serviceData":"port:59567,","wlanIp":"192.168.137.120","capabilityBitmap":[64],"coapUri":"coap://192.168.137.120/device_discover"}
+  [CZY_TEST_CoapPostServiceDiscover] print some info end--------------
+  [CZY_TEST_CoapSendRequest] enter
+  Jan 01 00:14:17 ERR  interface is not up
+  [CZY_TEST_CoapSendRequest] CoapGetSessionOnTargetServer success
+  [CZY_TEST_CoapSendRequest] CoapPackToPdu success
+  [CZY_TEST_CoapSendRequest] coap_send success
+      
+  .
+  [CZY_TEST_CoapPostServiceDiscover] enter
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] print some info might be sent--------------
+  [CZY_TEST_CoapPostServiceDiscover] ifName:eth
+  [CZY_TEST_CoapPostServiceDiscover] ipString:192.168.137.255
+  [CZY_TEST_CoapPostServiceDiscover] discoverUri:coap://192.168.137.255/device_discover
+  [CZY_TEST_CoapPostServiceDiscover] data:{"deviceId":"{\"UDID\":\"ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00\"}","devicename":"UNKNOWN","type":0,"hicomversion":"hm.1.0.0","mode":1,"deviceHash":"","serviceData":"port:59567,","wlanIp":"192.168.137.120","capabilityBitmap":[64],"coapUri":"coap://192.168.137.120/device_discover"}
+  [CZY_TEST_CoapPostServiceDiscover] print some info end--------------
+  [CZY_TEST_CoapSendRequest] enter
+  Jan 01 00:14:21 ERR  interface is not up
+  [CZY_TEST_CoapSendRequest] CoapGetSessionOnTargetServer success
+  [CZY_TEST_CoapSendRequest] CoapPackToPdu success
+  [CZY_TEST_CoapSendRequest] coap_send success
+  4 nStackXCoAP: CoapServiceDiscoverTimerHandle:[672] :the 12 times for device discover.
+  4 nStackXCoAP: GetServiceDiscoverInfo:[280] :data is not end with 0
+  3 nStackXCoAP: ParseDeviceJsonData:[172] :Can't find hicom version
+  3 nStackXCoAP: CoapServiceDiscoverStop:[651] :clear device list backup
+  
+  ```
+
+  3861端：
+
+  ```c
+  enter SoftBus Task
+  [DISCOVERY] InitLocalDeviceInfo ok
+  [DISCOVERY] CoapInitWifiEvent
+  [DISCOVERY] CoapWriteMsgQueue
+  [DISCOVERY] InitService ok
+  [DISCOVERY] PublishCallback publishId=233, result=0
+  publish succeeded, publishId = 233
+  PublishService init success
+  CoapGetIp = 192.168.137.183
+  StartSessionServer successed!
+  [TRANS] WaitProcess begin
+  [TRANS] StartListener ok
+  [TRANS] SelectSessionLoop begin
+  [AUTH] StartBus ok
+  [DISCOVERY] CoapReadHandle coin select begin
+  hiview init success.[CZY_TEST]:IO requests are listened by CoapReadHandle ,ret is:1 
+  [CZY_TEST]:printf addr info:port:13334,addr:192.168.137.120
+  [CZT_TEST] HandleReadEvent nRead is:347
+  [CZT_TEST] COAP_SoftBusDecode ret is:0,success
+  [CZT_TEST]print deviceInfo:
+  [CZT_TEST]deviceInfo-deviceName:UNKNOWN:
+  [CZT_TEST]deviceInfo-deviceId:{"UDID":"ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00"}
+  [CZT_TEST]deviceInfo-deviceType:0
+  [CZT_TEST]deviceInfo-portNumber:0
+  [CZT_TEST]deviceInfo-capabilityBitmapNum:1
+  [CZT_TEST]deviceInfo-mode:
+  [CZT_TEST]deviceInfo-serviceData:port:59567,:
+  [CZT_TEST]print remoteUrl coap://192.168.137.120/device_discover:
+  [CZT_TEST]print wifiIpAddr 192.168.137.120:
+  [CZY_TEST]:IO requests are listened by CoapReadHandle ,ret is:1 
+  [CZY_TEST]:printf addr info:port:13334,addr:192.168.137.120
+  //以下内容均为16-31行的重复
+  ```
+
+  总结下3516目前发现的两个bug
+
+  1. 根据接口获取广播地址
+  2. 不能根据接口变化自动重新获取新的ip，必须要手动获取ip
+
