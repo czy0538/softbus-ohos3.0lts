@@ -824,7 +824,7 @@ L_END_JSON:
   [CZT_TEST]print deviceInfo:
   [CZT_TEST]deviceInfo-deviceName:UNKNOWN:
   [CZT_TEST]deviceInfo-deviceId:{"UDID":"ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00"}
-  [CZT_TEST]deviceInfo-deviceType:0
+      [CZT_TEST]deviceInfo-deviceType:0
   [CZT_TEST]deviceInfo-portNumber:0
   [CZT_TEST]deviceInfo-capabilityBitmapNum:1
   [CZT_TEST]deviceInfo-mode:
@@ -836,8 +836,84 @@ L_END_JSON:
   //以下内容均为16-31行的重复
   ```
 
-  总结下3516目前发现的两个bug
+  总结下3516目前发现的bug
 
   1. 根据接口获取广播地址
   2. 不能根据接口变化自动重新获取新的ip，必须要手动获取ip
+  3. 无法获取deviceHash
+
+### 无法获取deviceHash问题分析
+
+- 6096e878419f654f6b3420c8f49a8a3fabfb365e ：测试deviceInfo中到底有没有hash信息
+
+![image-20211102162341604](https://picgo-1305367394.cos.ap-beijing.myqcloud.com/picgo/202111021623844.png)
+
+可以发现无法正确获得hash值
+
+hash值存储在`deviceInfo`结构体中，系统中由` g_localDeviceInfo`存储。
+
+定义在`components\nstackx\nstackx_ctrl\core\nstackx_device.c`
+
+从`components\nstackx\nstackx_ctrl\core\nstackx_device.c GetReservedInfo`情况看hash信息来自于认证模块，但是这里我们找不到相应的代码。
+
+```c
+static int32_t GetReservedInfo(DeviceInfo *deviceInfo, NSTACKX_DeviceInfo *deviceList)
+{
+    char wifiIpAddr[NSTACKX_MAX_IP_STRING_LEN];
+    (void)memset_s(wifiIpAddr, sizeof(wifiIpAddr), 0, sizeof(wifiIpAddr));
+    (void)inet_ntop(AF_INET, &deviceInfo->netChannelInfo.wifiApInfo.ip, wifiIpAddr, sizeof(wifiIpAddr));
+    if (sprintf_s(deviceList[0].reservedInfo, sizeof(deviceList[0].reservedInfo),
+        NSTACKX_RESERVED_INFO_JSON_FORMAT, wifiIpAddr) == NSTACKX_EFAILED) {
+        return NSTACKX_EFAILED;
+    }
+    cJSON *item = cJSON_Parse(deviceList[0].reservedInfo);
+    if (item == NULL) {
+        LOGE(TAG, "pares deviceList fails");
+        return NSTACKX_EFAILED;
+    }
+
+    if (deviceInfo->mode != DEFAULT_MODE) {
+        if (!cJSON_AddNumberToObject(item, "mode", deviceInfo->mode)) {
+            LOGE(TAG, "add mode to object failed");
+        }
+    }
+    if (!cJSON_AddStringToObject(item, "hwAccountHashVal", deviceInfo->deviceHash)) {
+        LOGE(TAG, "add hwAccountHashVal to object failed");
+    }
+    const char *ver = (strlen(deviceInfo->version) == 0) ? NSTACKX_DEFAULT_VER : deviceInfo->version;
+    if (!cJSON_AddStringToObject(item, "version", ver)) {
+        LOGE(TAG, "add hwAccountHashVal to object failed");
+    }
+    char *newData = cJSON_Print(item);
+    if (newData == NULL) {
+        cJSON_Delete(item);
+        return NSTACKX_EFAILED;
+    }
+    (void)memset_s(deviceList[0].reservedInfo, sizeof(deviceList[0].reservedInfo), 0,
+                   sizeof(deviceList[0].reservedInfo));
+    if (strcpy_s(deviceList[0].reservedInfo, sizeof(deviceList[0].reservedInfo), newData) != EOK) {
+        cJSON_Delete(item);
+        free(newData);
+        return NSTACKX_EFAILED;
+    }
+    cJSON_Delete(item);
+    free(newData);
+    return NSTACKX_EOK;
+}
+```
+
+这个问题暂时不好解决，尝试采用华为平板的hash放进去骗一下
+
+```c
+华为平板
+ÿÿÿÿÿÿ²³,ÀEá³B@@ñÀ¨fÀ¨ÿ44Í~ñPdx=192.168.137.255device_discoverÿ{"deviceId":"{\"UDID\":\"6d0222603048543b4922774801453eb65d9623d799e62d7b273d5e49dd3bcef7\"}","devicename":"HUAWEI MatePad 11","hicomversion":"3.1.0.0","mode":1,"deviceHash":"10086000000275820","serviceData":"port:38893","extendServiceData":"summary:2F52A3A1D0C84F20A1B88143B792C91CC84EB052,nbVer:7","wlanIp":"192.168.137.102","capabilityBitmap":[455],"type":17,"coapUri":"coap://192.168.137.102/device_discover"}
+
+我们的开发板：
+data:{"deviceId":"{\"UDID\":\"ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00\"}","devicename":"UNKNOWN","type":0,"hicomversion":"hm.1.0.0","mode":1,"deviceHash":"","serviceData":"port:45403,","wlanIp":"192.168.137.10","capabilityBitmap":[192],"coapUri":"coap://192.168.137.10/device_discover"}
+
+```
+
+
+
+仍然不能彻底解决问题，认证失败，原因未知
 
