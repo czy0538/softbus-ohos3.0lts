@@ -103,8 +103,9 @@ void ClientDeathCallback(const char *pkgName);
 ```c
 void InitSoftBusServer(void)
 {
+    //该函数最终目的就是初始化`g_configItems`，给他赋予各种各样的值
     SoftbusConfigInit();
-
+	
     if (ServerStubInit() != SOFTBUS_OK) {
         SoftBusLog(SOFTBUS_LOG_COMM, SOFTBUS_LOG_ERROR, "server stub init failed.");
         return;
@@ -157,7 +158,7 @@ ERR_EXIT:
 
 ## SoftbusConfigInit
 
-该函数最终目的就是初始化`g_configItems`，给他赋予各种各样的值，目的不详。
+**该函数最终目的就是初始化`g_configItems`，给他赋予各种各样的值，目的不详。**
 
 > core\common\softbus_property\src\softbus_feature_config.c
 
