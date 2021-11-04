@@ -64,7 +64,8 @@ if (ohos_kernel_type == "liteos_m") {
     ]
   }
 } else {
-  shared_library("softbus_server_frame") {
+  shared_library("softbus_server_frame")
+  {
     include_dirs = [
       "common/include",
       "small/init/include",

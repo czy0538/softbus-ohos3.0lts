@@ -16,10 +16,11 @@
 #include "softbus_server_frame.h"
 #include <unistd.h>
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     InitSoftBusServer();
-    while (1) {
+    while (1)
+    {
         pause();
     }
     return 0;
