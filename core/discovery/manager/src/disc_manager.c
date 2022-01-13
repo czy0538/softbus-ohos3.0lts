@@ -464,7 +464,7 @@ static DiscInfo *CreateNewPublishInfoNode(const PublishInfo *info)
     return infoNode;
 }
 
-//创建DiscInfo结构体，我们传入的基本所有的info都存在内部这个结构体重
+//创建DiscInfo结构体，我们传入的基本所有的info都存在内部这个结构体中
 static DiscInfo *CreateNewSubscribeInfoNode(const SubscribeInfo *info)
 {
     int32_t ret;
@@ -1110,7 +1110,7 @@ int32_t DiscStartDiscovery(const char *packageName, const SubscribeInfo *info, c
         ret = SOFTBUS_DISCOVER_MANAGER_INFO_NOT_CREATE;
         return ret;
     }
-    ////注册cb到内部结构体，并且把info添加到内部的list上，调用了CoapStartAdvertise
+    //注册cb到内部结构体，并且把info添加到内部的list上，调用了CoapStartAdvertise
     ret = InnerStartDiscovery(packageName, infoNode, cb, SUBSCRIBE_SERVICE);
     if (ret != SOFTBUS_OK) {
         ReleaseInfoNodeMem(infoNode, SUBSCRIBE_SERVICE);
